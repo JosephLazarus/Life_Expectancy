@@ -1,0 +1,621 @@
+---
+title: "Life Expectancy"
+author: "Rick Fontenot"
+date: "5/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load Libraries
+```{r load-packages, include=FALSE}
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(DataExplorer)
+library(gplots)
+library(graphics)
+library(corrplot)
+library(olsrr)
+library(ggpubr)
+library(rstatix)
+library(dplyr)
+library(tidyverse)
+library(visdat)
+library(GGally)
+library(usmap)
+library(mice)
+library(VIM)
+library(plotly)
+library(caret)
+library(e1071)
+library(class)
+library(maps)
+library(mapproj)
+library(stringr)
+library(ggplot2) 
+library(ggthemes)
+library(table1)
+library(DataExplorer)
+```
+Load Theme for plots
+
+```{r}
+theme_set(theme_fivethirtyeight())
+theme_update(axis.title = element_text()) #the default for fivethirtyeight is to not show axis labels, this removes that default so we can choose to specify and display axis titles
+theme_update(plot.title = element_text(hjust = 0.5)) # changing default to center all titles
+```
+
+Load Data from Kaggle
+
+From https://www.kaggle.com/philbowman212/life-expectancy-exploratory-data-analysis
+
+Variable Descriptions
+Format: variable (type) - description
+
+country (Nominal) - the country in which the indicators are from (i.e. United States of America or Congo)
+
+year (Ordinal) - the calendar year the indicators are from (ranging from 2000 to 2015)
+
+status (Nominal) - whether a country is considered to be 'Developing' or 'Developed' by WHO standards
+
+life_expectancy (Ratio) - the life expectancy of people in years for a particular country and year
+
+adult_mortality (Ratio) - the adult mortality rate per 1000 population (i.e. number of people dying between 15 and 60 years per 1000 population); if the rate is 263 then that means 263 people will die out of 1000 between the ages of 15 and 60; another way to think of this is that the chance an individual will die between 15 and 60 is 26.3%
+
+infant_deaths (Ratio) - number of infant deaths per 1000 population; similar to above, but for infants
+
+alcohol (Ratio) - a country's alcohol consumption rate measured as liters of pure alcohol consumption per capita
+
+percentage_expenditure (Ratio) - expenditure on health as a percentage of Gross Domestic Product (gdp)
+
+hepatitis_b (Ratio) - number of 1 year olds with Hepatitis B immunization over all 1 year olds in population
+
+measles (Ratio) - number of reported Measles cases per 1000 population
+
+bmi (Interval/Ordinal) - average Body Mass Index (BMI) of a country's total population
+
+under-five_deaths (Ratio) - number of people under the age of five deaths per 1000 population
+
+polio (Ratio) - number of 1 year olds with Polio immunization over the number of all 1 year olds in population
+
+total_expenditure (Ratio) - government expenditure on health as a percentage of total government expenditure
+
+diphtheria (Ratio) - Diphtheria tetanus toxoid and pertussis (DTP3) immunization rate of 1 year olds
+
+hiv/aids (Ratio) - deaths per 1000 live births caused by HIV/AIDS for people under 5; number of people under 5 who die due to 
+
+HIV/AIDS per 1000 births
+
+gdp (Ratio) - Gross Domestic Product per capita
+
+population (Ratio) - population of a country
+
+thinness_1-19_years (Ratio) - rate of thinness among people aged 10-19 (Note: variable should be renamed to thinness_10-19_years 
+to more accurately represent the variable)
+
+thinness_5-9_years (Ratio) - rate of thinness among people aged 5-9
+
+income_composition_of_resources (Ratio) - Human Development Index in terms of income composition of resources (index ranging from 0 to 1)
+
+schooling (Ratio) - average number of years of schooling of a population
+
+```{r load data}
+kaggle.training = read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/WHO_Data/Life%20Expectancy%20Data.csv", header = TRUE)
+
+head(kaggle.training)
+
+str(kaggle.training)
+#Note that Country & Status are categorical, all other predictors are numerical
+```
+
+Investigate NA values to determine what needs resolution
+
+```{r}
+aggr_plot <- aggr(kaggle.training, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(kaggle.training), cex.axis=.7, gap=3, ylab=c("Percent data missing","Combinations Missing"))
+
+#Lots of missing values to deal with >15% for Population, Hepatitis.B and GDP
+
+
+marginplot(kaggle.training[c(5,4)])
+#view(kaggle.training)
+#
+
+plot_histogram(kaggle.training)
+
+
+```
+
+Look for correlations to Population to explore methods of imputing missing values
+
+```{r}
+Population<-kaggle.training %>% select(-Country,-Status) %>% na.omit() %>% filter(Population<1e8)
+
+stat.test <- cor(Population[-16], Population$Population) 
+
+Population %>% ggplot(aes(x = infant.deaths, y = Population)) + geom_point(size=0.5)
+
+model <- lm(Population ~ ., data = Population)
+summary(model)
+#Adj R=0.48 , significant variables are infant.deaths, Measles, under.five.deaths, Schooling
+
+model2 <- lm(Population ~ infant.deaths + Measles + under.five.deaths + Schooling, data = Population)
+summary(model2)
+#Adj R=0.48 , significant variables are infant.deaths, Measles, under.five.deaths, Schooling
+
+Population["prediction"]<-predict(model2, newdata = Population)
+
+Population %>% ggplot(aes(x = Population, y = prediction)) + geom_point(size=0.5)
+
+Population %>% ggplot(aes(x = Population, y = prediction)) + geom_point(size=0.5) + xlim(0, 1e5) + ylim(0,1e7)
+
+#this regression is not a very good predictor
+
+missingPopulation<-kaggle.training %>% group_by(Country) %>% summarise(MissingYears = sum(is.na(Population)))
+missingPopulation<-missingPopulation[order(missingPopulation$MissingYears,decreasing=TRUE),]
+missingPopulation
+
+#40 Countries are missing population for all 16 years, these account for 640 of the 652 missing values, range years 2000-2015
+
+#Import population data from http://wdi.worldbank.org/table/2.1#
+#Note used 2000 Actual Population plus growth rate to estimate 2001 through 2015
+
+worldbank = read.csv("/Users/rickfontenot/Dropbox/SMU/DS6372 Applied Statistics/Project1_Summer_2021/WorldBankPopulation.csv", header = TRUE)
+
+worldbank <- worldbank %>% select(-Population2000,-Population2019,-PopulationGrowth) %>% gather(-Country, key = "Year", value = "EstPopulation")
+
+worldbank$Year <- gsub("X", "", worldbank$Year)
+worldbank$Year <- as.numeric(worldbank$Year)
+worldbank$EstPopulation <- as.numeric(worldbank$EstPopulation)
+worldbank
+
+worldbank$Country <- gsub("Bahamas, The", "Bahamas", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Bolivia", "Bolivia (Plurinational State of)", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Congo, Rep.", "Congo", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Cote d'Ivoire", "Côte d'Ivoire", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Czech Republic", "Czechia", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Korea, Dem. People's Rep.", "Democratic People's Republic of Korea", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Congo, Dem. Rep.", "Democratic Republic of the Congo", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Egypt, Arab Rep.", "Egypt", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Gambia, The", "Gambia", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Iran, Islamic Rep.", "Iran (Islamic Republic of)", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Kyrgyz Republic", "Kyrgyzstan", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Lao PDR", "Lao People's Democratic Republic", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Micronesia, Fed. Sts.", "Micronesia (Federated States of)", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Korea, Rep.", "Republic of Korea", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Moldova", "Republic of Moldova", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("St. Lucia", "Saint Lucia", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("St. Vincent and the Grenadines", "Saint Vincent and the Grenadines", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Slovak Republic", "Slovakia", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Eswatini", "Swaziland", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("North Macedonia", "The former Yugoslav republic of Macedonia", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("United Kingdom", "United Kingdom of Great Britain and Northern Ireland", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Tanzania", "United Republic of Tanzania", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("United States", "United States of America", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Venezuela, RB", "Venezuela (Bolivarian Republic of)", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Vietnam", "Viet Nam", worldbank$Country) #rename to match kaggle set
+worldbank$Country <- gsub("Yemen, Rep.", "Yemen", worldbank$Country) #rename to match kaggle set
+
+kaggle.training %>% left_join(worldbank)
+
+kaggle.training<-left_join(kaggle.training, worldbank, by = c("Country","Year"), copy = FALSE)
+
+kaggle.training %>% ggplot(aes(x = EstPopulation, y = Population)) + geom_point(size=0.5)+geom_jitter()+ xlim(0, 1e7) + ylim(0,1e7)
+
+#Note there are some where correlation is way off, look at Afgahnistan as example
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,Population,EstPopulation) %>% gather(-Year, key = "Type", value = "Population")
+ggplot(Afghanistan,aes(x = Year, y = Population,color=Type)) + geom_line()
+#Kaggle data set appears to have error with anual population bouncing up and down drastically. Some years are off by factor of 10 some years are off by factor of 100
+
+#Check Albania as second example
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,Population,EstPopulation) %>% gather(-Year, key = "Type", value = "Population")
+ggplot(Albania,aes(x = Year, y = Population,color=Type)) + geom_line()
+#Albania has similar issue including some years near zero population
+
+#Check Rwanda as second example
+Rwanda <- kaggle.training %>% filter(Country=="Rwanda") %>% select(Year,Population,EstPopulation) %>% gather(-Year, key = "Type", value = "Population")
+ggplot(Rwanda,aes(x = Year, y = Population,color=Type)) + geom_line()
+#Rwanda has similar issue including some years near zero population
+
+#Attempt to correct Afghanistan population errors by factors of 10 & 100 for comparison
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,Population,EstPopulation)
+Afghanistan["xPopulation"]<-Afghanistan$Population
+Afghanistan[2,]$xPopulation<-Afghanistan[2,]$Population*100
+Afghanistan[4,]$xPopulation<-Afghanistan[4,]$Population*10
+Afghanistan[5,]$xPopulation<-Afghanistan[5,]$Population*10
+Afghanistan[6,]$xPopulation<-Afghanistan[6,]$Population*10
+Afghanistan[7,]$xPopulation<-Afghanistan[7,]$Population*100
+Afghanistan[8,]$xPopulation<-Afghanistan[8,]$Population*10
+Afghanistan[10,]$xPopulation<-Afghanistan[10,]$Population*10
+Afghanistan[11,]$xPopulation<-Afghanistan[11,]$Population*100
+Afghanistan[13,]$xPopulation<-Afghanistan[13,]$Population*10
+Afghanistan[15,]$xPopulation<-Afghanistan[15,]$Population*10
+Afghanistan[16,]$xPopulation<-Afghanistan[16,]$Population*100
+Afghanistan<-Afghanistan%>% gather(-Year, key = "Type", value = "Population")
+ggplot(Afghanistan,aes(x = Year, y = Population,color=Type)) + geom_line()
+
+
+
+#Kaggle Population data doesn't look reliable, may want to use world bank instead
+view(kaggle.training)
+
+#Re-check missing data for Worldbank Population
+
+missingPopulation2<-kaggle.training %>% group_by(Country) %>% summarise(MissingYears = sum(is.na(EstPopulation)))
+missingPopulation2<-missingPopulation2[order(missingPopulation2$MissingYears,decreasing=TRUE),]
+missingPopulation2
+#Only 4 NA's when using EstPopulation from WorldBank data
+
+
+```
+
+Do the same analysis with GDP data from World Bank
+
+```{r}
+
+#Check missing GDPdata for for Kaggle set by country
+missingGDP<-kaggle.training %>% group_by(Country) %>% summarise(MissingYears = sum(is.na(GDP)))
+missingGDP<-missingGDP[order(missingGDP$MissingYears,decreasing=TRUE),]
+missingGDP
+#25 countries are missing data for all 16 years, these account for 400 of the 448 missing values. Would be tought to impute on means, look at alt source instead
+
+gdp = read.csv("/Users/rickfontenot/Dropbox/SMU/DS6372 Applied Statistics/Project1_Summer_2021/WorldBankGDP.csv", header = TRUE)
+
+gdp <- gdp %>% gather(-Country, key = "Year", value = "EstGDP")
+
+gdp$Year <- gsub("X", "", gdp$Year)
+gdp$Year <- as.numeric(gdp$Year)
+gdp$EstGDP <- as.numeric(gdp$EstGDP)
+gdp
+
+gdp$Country <- gsub("Bahamas, The", "Bahamas", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Bolivia", "Bolivia (Plurinational State of)", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Congo, Rep.", "Congo", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Cote d'Ivoire", "Côte d'Ivoire", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Czech Republic", "Czechia", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Korea, Dem. People's Rep.", "Democratic People's Republic of Korea", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Congo, Dem. Rep.", "Democratic Republic of the Congo", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Egypt, Arab Rep.", "Egypt", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Gambia, The", "Gambia", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Iran, Islamic Rep.", "Iran (Islamic Republic of)", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Kyrgyz Republic", "Kyrgyzstan", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Lao PDR", "Lao People's Democratic Republic", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Micronesia, Fed. Sts.", "Micronesia (Federated States of)", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Korea, Rep.", "Republic of Korea", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Moldova", "Republic of Moldova", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("St. Lucia", "Saint Lucia", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("St. Vincent and the Grenadines", "Saint Vincent and the Grenadines", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Slovak Republic", "Slovakia", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Eswatini", "Swaziland", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("North Macedonia", "The former Yugoslav republic of Macedonia", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("United Kingdom", "United Kingdom of Great Britain and Northern Ireland", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Tanzania", "United Republic of Tanzania", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("United States", "United States of America", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Venezuela, RB", "Venezuela (Bolivarian Republic of)", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Vietnam", "Viet Nam", gdp$Country) #rename to match kaggle set
+gdp$Country <- gsub("Yemen, Rep.", "Yemen", gdp$Country) #rename to match kaggle set
+
+kaggle.training<-left_join(kaggle.training, gdp, by = c("Country","Year"), copy = FALSE)
+
+kaggle.training %>% ggplot(aes(x = EstGDP, y = GDP)) + geom_point(size=0.5)+geom_jitter()
+
+#Note there are some where correlation is way off, look at Afgahnistan as example
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,GDP,EstGDP) %>% gather(-Year, key = "Type", value = "GDP")
+ggplot(Afghanistan,aes(x = Year, y = GDP,color=Type)) + geom_line()
+#Kaggle data set appears to have error with anual population bouncing up and down drastically. Some years are off by factor of 10 some years are off by factor of 100
+
+#Check Albania as second example
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,GDP,EstGDP) %>% gather(-Year, key = "Type", value = "GDP")
+ggplot(Albania,aes(x = Year, y = GDP,color=Type)) + geom_line()
+#Albania has similar issue including some years near zero population
+
+#Check Rwanda as second example
+Rwanda <- kaggle.training %>% filter(Country=="Rwanda") %>% select(Year,GDP,EstGDP) %>% gather(-Year, key = "Type", value = "GDP")
+ggplot(Rwanda,aes(x = Year, y = GDP,color=Type)) + geom_line()
+#Rwanda has similar issue including some years near zero population
+
+
+#Re-check missing data for Worldbank Population
+missingGDP2<-kaggle.training %>% group_by(Country) %>% summarise(MissingYears = sum(is.na(EstGDP)))
+missingGDP2<-missingGDP2[order(missingGDP2$MissingYears,decreasing=TRUE),]
+missingGDP2
+#Democratic Rep of Korea not in world bank set and Somlia missing 2000-2012, South Sudan missing 2000-2005 Syrian Arab Rep missing 2008-2015in world bank, not a merge issue. These 4 countries account for 45 of remaining 60 missing values, but big improvement from original 448 missing values
+
+#Bigger issue is why values in both sets don't correlate, is there a scaling issue?
+
+view(kaggle.training)
+
+#Data Description said kaggle GDP data was per capita, world bank is in $billions, calculate estGDP per capita
+kaggle.training["EstGDPpercapita"]<-kaggle.training$EstGDP * 1000000000/ kaggle.training$EstPopulation /1000
+kaggle.training %>% ggplot(aes(x = EstGDPpercapita, y = GDP)) + geom_point(size=0.5)+geom_jitter()
+#scales match now but two distict relationship lines, what's going on there?
+
+#Note there are some where correlation is way off, look at Afgahnistan as example
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,GDP,EstGDPpercapita) %>% gather(-Year, key = "Type", value = "GDP")
+ggplot(Afghanistan,aes(x = Year, y = GDP,color=Type)) + geom_line()
+#Kaggle data set appears to have error with annual population bouncing up and down drastically. Some years are off by factor of 10 some years are off by factor of 100
+
+#Note there are some where correlation is way off, look at Afgahnistan as example
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,GDP,EstGDPpercapita) %>% gather(-Year, key = "Type", value = "GDP")
+ggplot(Albania,aes(x = Year, y = GDP,color=Type)) + geom_line()
+#Kaggle data set appears to have error with annual population bouncing up and down drastically. Some years are off by factor of 10 some years are off by factor of 100
+
+#Check Rwanda as second example
+Rwanda <- kaggle.training %>% filter(Country=="Rwanda") %>% select(Year,GDP,EstGDPpercapita) %>% gather(-Year, key = "Type", value = "GDP")
+ggplot(Rwanda,aes(x = Year, y = GDP,color=Type)) + geom_line()
+#Rwanda has similar issue
+
+#These plots show same issue, GDP per capita probably confounded by same issue with bad population data
+
+view(kaggle.training)
+
+```
+Since Population data issue caused per capita calculation issue on GDP, does it affect any otherper capita variables like:
+
+alcohol (Ratio) - a country's alcohol consumption rate measured as liters of pure alcohol consumption per capita
+
+percentage_expenditure (Ratio) - expenditure on health as a percentage of Gross Domestic Product (gdp)
+
+measles (Ratio) - number of reported Measles cases per 1000 population
+
+under-five_deaths (Ratio) - number of people under the age of five deaths per 1000 population
+
+total_expenditure (Ratio) - government expenditure on health as a percentage of total government expenditure
+
+```{r}
+#Afghanistan had population issues for years 2005 & 2011
+#Albania had population issues for years 2003, 2005, 2006,2007,2008, 2010
+#Rwanda had population issues for years 2001,2007,2008,2014,2015
+
+#Check Alcohol
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,Alcohol) %>% gather(-Year, key = "Type", value = "Alcohol")
+ggplot(Afghanistan,aes(x = Year, y = Alcohol,color=Type)) + geom_line()
+#Alcohol looks OK
+
+#Check percentage.expenditure
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,percentage.expenditure) %>% gather(-Year, key = "Type", value = "percentage.expenditure")
+ggplot(Afghanistan,aes(x = Year, y = percentage.expenditure,color=Type)) + geom_line()
+#percentage.expenditure shows issue in years with population problem matches 2005,2011
+
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,percentage.expenditure) %>% gather(-Year, key = "Type", value = "percentage.expenditure")
+ggplot(Albania,aes(x = Year, y = percentage.expenditure,color=Type)) + geom_line()
+#percentage.expenditure shows issue in years with population problem matches 2003, 2005,2006,2007,2008,2010
+
+kaggle.training["CorrectedExpenditure"]<-kaggle.training$percentage.expenditure * (kaggle.training$EstGDPpercapita / kaggle.training$GDP)
+
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,CorrectedExpenditure,percentage.expenditure) %>% gather(-Year, key = "Type", value = "CorrectedExpenditure")
+ggplot(Afghanistan,aes(x = Year, y = CorrectedExpenditure,color=Type)) + geom_line()
+#percentage.expenditure shows issue in years with population problem matches 2005,2011
+
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,CorrectedExpenditure,percentage.expenditure) %>% gather(-Year, key = "Type", value = "CorrectedExpenditure")
+ggplot(Albania,aes(x = Year, y = CorrectedExpenditure,color=Type)) + geom_line()
+#percentage.expenditure shows issue in years with population problem matches 2003, 2005,2006,2007,2008,2010
+
+#Based on these plots use Corrected Expenditure instead of raw percentage.expenditure
+
+#Check Measles
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,Measles) %>% gather(-Year, key = "Type", value = "Measles")
+ggplot(Afghanistan,aes(x = Year, y = Measles,color=Type)) + geom_line()
+
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,Measles) %>% gather(-Year, key = "Type", value = "Measles")
+ggplot(Albania,aes(x = Year, y = Measles,color=Type)) + geom_line()
+
+Rwanda <- kaggle.training %>% filter(Country=="Rwanda") %>% select(Year,Measles) %>% gather(-Year, key = "Type", value = "Measles")
+ggplot(Rwanda,aes(x = Year, y = Measles,color=Type)) + geom_line()
+#Measles doesn't appear to have population error as divisor
+
+#Check under.five.deaths
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,under.five.deaths) %>% gather(-Year, key = "Type", value = "under.five.deaths")
+ggplot(Afghanistan,aes(x = Year, y = under.five.deaths,color=Type)) + geom_line()
+
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,under.five.deaths) %>% gather(-Year, key = "Type", value = "under.five.deaths")
+ggplot(Albania,aes(x = Year, y = under.five.deaths,color=Type)) + geom_line()
+#under.five.deaths does not appear to have population error as divisor
+
+#Check Total.expenditure
+Afghanistan <- kaggle.training %>% filter(Country=="Afghanistan") %>% select(Year,Total.expenditure) %>% gather(-Year, key = "Type", value = "Total.expenditure")
+ggplot(Afghanistan,aes(x = Year, y = Total.expenditure,color=Type)) + geom_line()
+
+Albania <- kaggle.training %>% filter(Country=="Albania") %>% select(Year,Total.expenditure) %>% gather(-Year, key = "Type", value = "Total.expenditure")
+ggplot(Albania,aes(x = Year, y = Total.expenditure,color=Type)) + geom_line()
+#Total.Expenditure does not appear to have population error as divisor
+
+#In review of this section all these variables checked for population error issue are ok except percentage.expenditure which we should replace with Corrected.expenditure
+```
+
+Explore regression to impute Hepatitis
+
+```{r}
+
+#Check missing GDPdata for for Kaggle set by country
+kaggle.training %>% summarise(sum(is.na(Hepatitis.B)))
+#553 missing values total
+missingHepatitis<-kaggle.training %>% group_by(Country) %>% summarise(MissingYears = sum(is.na(Hepatitis.B)))
+missingHepatitis<-missingHepatitis[order(missingHepatitis$MissingYears,decreasing=TRUE),]
+missingHepatitis
+#9 countries are missing data for all 16 years which only accounts for 144 of the missing values
+#This is  different than population & GDP, may be able to impute majority from within rather than look for alternative sources
+
+
+Hepatitis<-kaggle.training %>% select(-Country,-Status) %>% na.omit()
+
+stat.test <- cor(Hepatitis[-7], Hepatitis$Hepatitis.B) 
+stat.test
+#most significant indivisual correlations:
+#Diphtheria = 0.59 positive correlation makes since, higher vaccine rate for 1 disease = higher rate for most diseases
+#Polio = 0.46 positive correlation makes since, higher vaccine rate for 1 disease = higher rate for most disease
+
+Hepatitis %>% ggplot(aes(x = Diphtheria, y = Hepatitis.B)) + geom_point(size=0.5)
+
+model <- lm(Hepatitis.B ~ ., data = Hepatitis)
+summary(model)
+#Adj R=0.41 , significant variables are Diphtheria, Polio, Year, infant.deaths, Measles, under.five.deaths, Schooling
+
+model2 <- lm(Hepatitis.B ~ Diphtheria + Polio + Year + EstPopulation, data = Hepatitis)
+summary(model2)
+#Adj R=0.38 , significant variables are infant.deaths, Measles, under.five.deaths, Schooling
+
+model3 <- lm(Hepatitis.B ~ Diphtheria + Polio, data = Hepatitis)
+summary(model3)
+#Adj R=0.36
+
+model4 <- lm(Hepatitis.B ~ Diphtheria, data = Hepatitis)
+summary(model4)
+#Adj R=0.3475
+
+Hepatitis["prediction"]<-predict(model, newdata = Hepatitis)
+
+Hepatitis %>% ggplot(aes(x = Hepatitis.B, y = prediction)) + geom_point(size=0.5)
+#Note that regression looks stronger for points with >50% rate of vaccination
+
+#Look at sample countries with 7-9 missing years example Niger, Chad, Congo
+Niger <- kaggle.training %>% filter(Country=="Niger") %>% select(Year,Hepatitis.B,Diphtheria) %>% gather(-Year, key = "Type", value = "value")
+ggplot(Niger,aes(x = Year, y = value,color=Type)) + geom_line()
+
+Chad <- kaggle.training %>% filter(Country=="Chad") %>% select(Year,Hepatitis.B,Diphtheria) %>% gather(-Year, key = "Type", value = "value")
+ggplot(Chad,aes(x = Year, y = value,color=Type)) + geom_line()
+
+Congo <- kaggle.training %>% filter(Country=="Congo") %>% select(Year,Hepatitis.B,Diphtheria) %>% gather(-Year, key = "Type", value = "value")
+ggplot(Congo,aes(x = Year, y = value,color=Type)) + geom_line()
+#wild swings in hepatitis rates by year, so replacing missing values with means by country may not be better than weak regression
+
+#Check missing Hepatits data by Diptheria rates
+missingHepatitis<-kaggle.training %>% group_by(Diphtheria) %>% summarise(MissingYears = sum(is.na(Hepatitis.B)))
+missingHepatitis<-missingHepatitis[order(missingHepatitis$MissingYears,decreasing=TRUE),]
+missingHepatitis
+ggplot(missingHepatitis, aes(Diphtheria, MissingYears)) + geom_col()
+#Note Majority of missing Hepatits points come from high Diphtheria rows, make stronger predictions just for those and leave other NA's rather than making bad predictions
+
+Hepatitis2<-kaggle.training %>% select(-Country,-Status) %>% filter(Diphtheria>50) %>% na.omit()
+
+model <- lm(Hepatitis.B ~ ., data = Hepatitis2)
+summary(model)
+#Adj R=0.41 , significant variables are Diphtheria, Polio, Year, infant.deaths, Measles, under.five.deaths, Schooling
+
+model2 <- lm(Hepatitis.B ~ Diphtheria + Polio + Year + EstPopulation, data = Hepatitis2)
+summary(model2)
+#Adj R=0.38 , significant variables are infant.deaths, Measles, under.five.deaths, Schooling
+
+model3 <- lm(Hepatitis.B ~ Diphtheria + Polio, data = Hepatitis2)
+summary(model3)
+#Adj R=0.36
+
+```
+Explore Correlations and relationships between variables
+
+```{r corr-EDA}
+#Create function to summarize the most significant correlations since there are too many variables for one plot
+corr_simple <- function(data=df,sig=0.1){
+  #convert data to numeric in order to run correlations
+  #convert to factor first to keep the integrity of the data - each value will become a number rather than turn into NA
+  df_cor <- data %>% mutate_if(is.character, as.factor)
+  df_cor <- df_cor %>% mutate_if(is.factor, as.numeric)
+  #run a correlation and drop the insignificant ones
+  corr <- cor(df_cor)
+  #prepare to drop duplicates and correlations of 1     
+  corr[lower.tri(corr,diag=TRUE)] <- NA 
+  #drop perfect correlations
+  corr[corr == 1] <- NA 
+  #turn into a 3-column table
+  corr <- as.data.frame(as.table(corr))
+  #remove the NA values from above 
+  corr <- na.omit(corr) 
+  #select significant values  
+  corr <- subset(corr, abs(Freq) > sig) 
+  #sort by highest correlation
+  corr <- corr[order(-abs(corr$Freq)),] 
+  #print table
+  print(corr)
+  #turn corr back into matrix in order to plot with corrplot
+  mtx_corr <- reshape2::acast(corr, Var1~Var2, value.var="Freq")
+  
+  #plot correlations visually
+  corrplot(mtx_corr, is.corr=FALSE, tl.col="black", na.label=" ")
+}
+corr_simple(kaggle.training)
+
+
+numerical<-kaggle.training %>% select(-Country,-Status)
+# ggpairs(numerical) to many combinations for plot to be useful
+
+numerical %>%
+  gather(-Life.expectancy, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = Life.expectancy, )) +
+    geom_point(size=0.01) +
+    facet_wrap(~ var, scales = "free") 
+
+#Initial observations to explore:
+#Adult.Mortality has high correlation appears to be two groups explore what separates groups
+#Alcohol looks weak overall but may have clusters dependent on other factors
+#BMI is similar
+#Diptheria is similar
+#GDP may need a transformation
+
+#All should be explored with plotly to look at groupings
+ #Why do so many variables have two distinct groupings in correlations? Is there a Country or data issue?
+
+kaggle.training %>% ggplot(aes(x = Adult.Mortality, y = Life.expectancy)) +
+    geom_point(size=0.5)
+
+#Create manual grouping based on (0,90) to (150,40) which translates to Life = -0.33Mortality + 90
+kaggle.training["Life.line"]=-0.33*kaggle.training$Adult.Mortality + 90
+
+kaggle.training["grouping1"] <- ifelse(kaggle.training$Life.line >=kaggle.training$Life.expectancy, "A", "B")
+kaggle.training$grouping1<-as.factor(kaggle.training$grouping1)
+
+#verify manual grouping worked on scatterplot
+kaggle.training %>% ggplot(aes(x = Adult.Mortality, y = Life.expectancy,color=grouping1)) +
+    geom_point(size=0.5)
+
+#Check to see if same grouping explains clustering on other scatter plots
+numerical2<-kaggle.training %>% select(-Country,-Status) %>% gather(-Life.expectancy,-grouping1, key = "var", value = "value")
+numerical2 %>% ggplot(aes(x = value, y = Life.expectancy,color=grouping1)) + geom_point(size=0.01) + facet_wrap(~ var, scales = "free") 
+#Clusters on other scatters are not dependent on same manual groupings
+```
+
+For Manual grouping1 see what could explain difference between clusters
+
+```{r}
+stat.test <- numerical2 %>%
+  group_by(var) %>%
+  t_test(value ~ grouping1) %>%
+  adjust_pvalue(method = "BH") %>%
+  add_significance()
+
+#Sort and display numerical variables with highest significant difference by Attrition
+stat.test <- stat.test %>% select(p, everything())
+stat.test <- stat.test[order(stat.test$p),] 
+stat.test
+
+#Year is strongest correlation on grouping
+kaggle.training %>% ggplot(aes(x=grouping1, y=Year)) + geom_boxplot()
+kaggle.training %>% ggplot(aes(x=grouping1, y=GDP)) + geom_boxplot()
+kaggle.training %>% ggplot(aes(x=grouping1, y=Measles)) + geom_boxplot()
+
+kaggle.training %>% ggplot(aes(x = Adult.Mortality, y = Life.expectancy,color=Year)) +
+    geom_point(size=0.5)
+
+#No simple explanation for clustering
+
+```
+
+Try knn model on Life Expectancy vs. Mortality EXPLORE THIS MORE LATER
+
+```{r}
+knn.input<-na.omit(kaggle.training)
+
+classifications = knn.cv(knn.input[,c(2,6:22)],knn.input$grouping1,prob = TRUE, k = 3)
+confusionMatrix(table(classifications,knn.input$grouping1))
+
+```
+
+Plot variables vs population to see if some need to be normalized to per capita
+
+```{r}
+kaggle.training %>% ggplot(aes(x = Population, y = Adult.Mortality)) + geom_point(size=0.5)
+kaggle.training %>% ggplot(aes(x = Population, y = infant.deaths)) + geom_point(size=0.5)
+kaggle.training %>% ggplot(aes(x = Population, y = GDP)) + geom_point(size=0.5)
+
+```
