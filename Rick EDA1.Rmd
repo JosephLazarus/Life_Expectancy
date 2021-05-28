@@ -162,7 +162,8 @@ missingPopulation
 #Import population data from http://wdi.worldbank.org/table/2.1#
 #Note used 2000 Actual Population plus growth rate to estimate 2001 through 2015
 
-worldbank = read.csv("/Users/rickfontenot/Dropbox/SMU/DS6372 Applied Statistics/Project1_Summer_2021/WorldBankPopulation.csv", header = TRUE)
+worldbank = read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/WorldBankPopulation.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+view(worldbank)
 
 worldbank <- worldbank %>% select(-Population2000,-Population2019,-PopulationGrowth) %>% gather(-Country, key = "Year", value = "EstPopulation")
 
@@ -261,7 +262,7 @@ missingGDP<-missingGDP[order(missingGDP$MissingYears,decreasing=TRUE),]
 missingGDP
 #25 countries are missing data for all 16 years, these account for 400 of the 448 missing values. Would be tought to impute on means, look at alt source instead
 
-gdp = read.csv("/Users/rickfontenot/Dropbox/SMU/DS6372 Applied Statistics/Project1_Summer_2021/WorldBankGDP.csv", header = TRUE)
+gdp = read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/WorldBankGDP.csv", header = TRUE, fileEncoding="UTF-8-BOM")
 
 gdp <- gdp %>% gather(-Country, key = "Year", value = "EstGDP")
 
@@ -299,6 +300,7 @@ gdp$Country <- gsub("Yemen, Rep.", "Yemen", gdp$Country) #rename to match kaggle
 
 kaggle.training<-left_join(kaggle.training, gdp, by = c("Country","Year"), copy = FALSE)
 
+#now run
 kaggle.training %>% ggplot(aes(x = EstGDP, y = GDP)) + geom_point(size=0.5)+geom_jitter()
 
 #Note there are some where correlation is way off, look at Afgahnistan as example
