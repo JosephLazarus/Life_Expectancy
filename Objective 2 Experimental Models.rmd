@@ -52,27 +52,14 @@ dim(testing.data)
                                        Knn Regression
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```{r}
-options("install.lock"=FALSE)
 library(caret)
 #step 1 standardize the data. This data set is pre-scaled
 
 #K Nearest Neighbors Regression using Caret
 
-knnt1 <- knnreg(training.data$Life.expectancy ~ ., data = training.data, k=1)
-knnt2 <- knnreg(training.data$Life.expectancy ~ ., data = training.data, k=2)
-
-#measure of model performance
-knnt1.mse <- mean((training.data$Life.expectancy - predict(knnt1,training.data$Adult.Mortality))^2)
-knnt2.mse <- mean((training.data$Life.expectancy - predict(knnt2, data =training.data))^2)
-
-knnt1.mae <- caret::MAE(testing.data$y, knnt1)
-knnt2.mae <- caret::MAE(testing.data$y, knnt1)
-
-knn1.rsme <- caret::RSME(testing.data$y, knnt1)
-knn1.rsme <- caret::RSME(testing.data$y, knnt1)
 
 #Tuning the Hyperparameter K
-k.to.try = seq(1,51, by = 2)
+k.to.try = seq(1,20, by = 1)
 
 train.knn <- function(mr.rogers) {
   knnreg(training.data$Life.expectancy ~ ., data = training.data, k = mr.rogers)
@@ -98,12 +85,82 @@ plot(k.to.try, knn.rmse.test, type = "b", col = "dodgerblue", pch = 20,
     xlab = "K Neighbors",
     ylab = "RMSE Specificy units (years?",
     main = "Test and Training set RMSE vs K")
+
 lines(k.to.try, knn.rmse.train, type = "b", col = "darkorange", pch = 23)
 legend("bottomright", c("Train RMSE", "Test RMSE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
        pch = c(23, 20))
 
+# lowest looks like knn = 3
+
+knnt3 <- knnreg(training.data$Life.expectancy ~ ., data = training.data, k=3)
+data.mod.knnt3 <- data.frame(predicted = predict(knnt3), observed= training.data$Life.expectancy)
+
+knnt3.mse <- mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2)
+knnt3.rmse <- sqrt(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2))
+
+#they said it couldn't be done but I did it. plotted observed vs predicted with caret package. 
+ggplot(data.mod.knnt3,                                     
+       aes(x = predicted,
+           y = observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              size = 2)
+table(knnt3.mse, knnt3.rmse)
+
 #find another knn regression model outside of caret
+
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                             Step 3.2: Experimental Model Engine
+                                        Tree Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+```{r}
+library(rpart)
+library(rpart.plot)
+
+dt.test.model <- rpart(training.data$Life.expectancy ~ ., data = training.data, method = 'anova', cp = .001)
+
+rpart.plot(dt.test.model)
+
+dt.model.pred = predict(dt.test.model, newdata = testing.data[,-1])
+
+#tunning the hyperparameter CP : default 0.01
+# this means that the overall R-squared must increase by cp
+# luckily plotcp does this for us!
+
+plotcp(dt.test.model)
+printcp(dt.test.model)
+
+#i like round 17 cp = .0029175
+# lets discuss why
+
+dt.model <-  rpart(training.data$Life.expectancy ~ ., data = training.data, method = 'anova', cp = 0.0029175)
+
+rpart.plot(dt.model)
+
+dt.model.pred <- predict(dt.model, newdata = testing.data[,-1])
+
+dt.model.ASE = mean((testing.data[,1] - predict(dt.model, testing.data[,-1]))^2)
+dt.model.RMSE = sqrt(mean((testing.data[,1] - predict(dt.model, testing.data[,-1]))^2))
+
+data.mod.dt <- data.frame(predicted = predict(dt.model), observed= training.data$Life.expectancy)
+
+# Draw plot using ggplot2 package this time
+
+ggplot(data.mod.dt,                                     
+       aes(x = predicted,
+           y = observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              size = 2)
+
 
 ```
