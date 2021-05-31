@@ -3,9 +3,60 @@ title: "Objective 1"
 author: "Satvik Ajmera"
 output: html_notebook
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
+```{r}
+df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/clean_scaled.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+```
+
+```{r}
+library(caret)
+library(naniar)
+sapply(df, function(x) sum(is.na(x)))
+set.seed(1234)
+sum(is.na(df)) 
+clean.df <- na.omit(df) 
+
+# trainIndex<-createDataPartition(df$Life.expectancy,p=.8,list=F)
+# training<-df[trainIndex,]
+# validate<-df[-trainIndex,]
+
+#Random Train/Test split of 80%
+splitPerc = 0.80
+theIndex = sample(1:dim(df)[1],round(splitPerc * dim(df)[1]))
+training <-df[theIndex,]
+validate <-df[-theIndex,]
+
+#Check our train/test split
+dim(train)
+dim(validate)
+
+#Setting up our details for CV. 
+#Note to check createTimeSlices if interested in splitting data on time
+
+#?createTimeSlices
+fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
+
+#GLM Net Model (selecting tuning parameters alpha and lambda via 10 FOLD CV)
+set.seed(1234)
+glmnet.fit<-train(Life.expectancy~.,
+               data=training,
+               method="glmnet",
+               trControl=fitControl,
+               na.action = na.omit
+               )
+#glmnet.fit results
+glmnet.fit
+#Model Coefficients
+coef(glmnet.fit$finalModel,glmnet.fit$finalModel$lambdaOpt)
+```
+
+
 ```{r}
 
 ```
+
+
+
+
 
