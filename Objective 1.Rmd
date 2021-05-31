@@ -7,6 +7,11 @@ editor_options:
 ---
 ```{r}
 df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/clean_scaled.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+
+setwd("~/Desktop/SMU MSDS Course Material/Summer 2021/DS 6372/Project1_Summer_2021/GitHub Repo/Life_Expectancy")
+
+df2 <- read.csv("WHO_Data/Life Expectancy Data.csv", header = TRUE)
+df2
 ```
 
 ```{r}
@@ -15,20 +20,22 @@ library(naniar)
 sapply(df, function(x) sum(is.na(x)))
 set.seed(1234)
 sum(is.na(df)) 
-clean.df <- na.omit(df) 
+clean.df <- na.omit(df)
+clean.df2 <- na.omit(df2)
+#We have remove NA values before creating data partition, so we used clean.df
+trainIndex<-createDataPartition(clean.df$Life.expectancy,p=.8,list=F)
+training<-clean.df[trainIndex,]
+validate<-clean.df[-trainIndex,]
 
-# trainIndex<-createDataPartition(df$Life.expectancy,p=.8,list=F)
-# training<-df[trainIndex,]
-# validate<-df[-trainIndex,]
-
+#We must split using the method above, with caret.
 #Random Train/Test split of 80%
-splitPerc = 0.80
-theIndex = sample(1:dim(df)[1],round(splitPerc * dim(df)[1]))
-training <-df[theIndex,]
-validate <-df[-theIndex,]
+# splitPerc = 0.80
+# theIndex = sample(1:dim(df)[1],round(splitPerc * dim(df)[1]))
+# training <-df[theIndex,]
+# validate <-df[-theIndex,]
 
 #Check our train/test split
-dim(train)
+dim(training)
 dim(validate)
 
 #Setting up our details for CV. 
@@ -51,12 +58,31 @@ glmnet.fit
 coef(glmnet.fit$finalModel,glmnet.fit$finalModel$lambdaOpt)
 ```
 
-
 ```{r}
+#Creating using the validation set. Resulting in the RMSE of the validation set
+glmnet.pred<-predict(glmnet.fit,validate)
+RMSE(glmnet.pred, validate$Life.expectancy)
+#RMSE
+glmnet.RMSE<-sqrt(mean((validate$Life.expectancy-glmnet.pred)^2))
+glmnet.RMSE
+plot(glmnet.pred,validate$Life.expectancy,ylim=c(40,100),xlim=c(40,100))
+lines(0:100,0:100)
 
+
+#Here is a more natural tool to compute RMSE as well as some additional metrics
+glmnet.validate<-postResample(pred = glmnet.pred, obs = validate$Life.expectancy)
+glmnet.validate
+
+#Ranking of the predictors
+varImp(glmnet.fit)
+plot(varImp(glmnet.fit))
 ```
 
 
+```{r}
+
+
+```
 
 
 
