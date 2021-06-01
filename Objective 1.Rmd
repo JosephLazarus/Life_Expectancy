@@ -14,18 +14,62 @@ df2 <- read.csv("WHO_Data/Life Expectancy Data.csv", header = TRUE)
 df2
 ```
 
+
 ```{r}
 library(caret)
 library(naniar)
 sapply(df, function(x) sum(is.na(x)))
+
 set.seed(1234)
 sum(is.na(df)) 
 clean.df <- na.omit(df)
 clean.df2 <- na.omit(df2)
+
 #We have remove NA values before creating data partition, so we used clean.df
 trainIndex<-createDataPartition(clean.df$Life.expectancy,p=.8,list=F)
 training<-clean.df[trainIndex,]
 validate<-clean.df[-trainIndex,]
+
+#Check our train/test split
+dim(training)
+dim(validate)
+```
+
+Forward Selection
+```{r}
+data(BloodBrain, package = "caret")
+
+dim(bbbDescr)
+fitControlNone<-trainControl(method="none")
+x=model.matrix(Life.expectancy~.,training)[,-1]
+y=training$Life.expectancy
+f.fit<-train(x=x,y=y, 
+               method="leapForward",
+               trControl=fitControlNone
+               )
+
+f.fit
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
 
 #We must split using the method above, with Caret package.
 #Random Train/Test split of 80%
@@ -34,9 +78,7 @@ validate<-clean.df[-trainIndex,]
 # training <-df[theIndex,]
 # validate <-df[-theIndex,]
 
-#Check our train/test split
-dim(training)
-dim(validate)
+
 
 #Setting up our details for CV. 
 #Note to check createTimeSlices if interested in splitting data on time
