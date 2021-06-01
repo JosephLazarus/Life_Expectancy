@@ -138,6 +138,6 @@ coef(lasso.mod,s=bestlambda)
 
 
 ```{r}
-
+summary(df)
 ```
 
