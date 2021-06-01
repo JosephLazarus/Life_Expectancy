@@ -19,26 +19,50 @@ df2
 library(caret)
 library(naniar)
 sapply(df, function(x) sum(is.na(x)))
+gg_miss_var(df)
+sapply(df2, function(x) sum(is.na(x)))
+gg_miss_var(df2)
 
-set.seed(1234)
-sum(is.na(df)) 
+sum(is.na(df))
+sum(is.na(df2))
+df$Developed = as.factor(df$Developed)
+#removed log.under.five.deaths, because of high colinearity
+removed_df <- subset(df, select = -c(log.under.five.deaths))
+#omit NA values for train/test split
+clean.re.df <-na.omit(removed_df)
+#omit NA values for train/test split
 clean.df <- na.omit(df)
+df$Developed = as.factor(df$Developed)
 clean.df2 <- na.omit(df2)
+fit = lm(Life.expectancy~., data = df)
+plot(fit)
 
 #We have remove NA values before creating data partition, so we used clean.df
-trainIndex<-createDataPartition(clean.df$Life.expectancy,p=.8,list=F)
-training<-clean.df[trainIndex,]
-validate<-clean.df[-trainIndex,]
+set.seed(1234)
+trainIndex <- createDataPartition(clean.df$Life.expectancy,p=.8,list=F)
+training <- clean.df[trainIndex,]
+validate <- clean.df[-trainIndex,]
 
 #Check our train/test split
 dim(training)
 dim(validate)
 ```
 
-Forward Selection
+Forward Selection Using Leaps Package
+```{r}
+library(leaps)
+#Too many linear dependencies found
+regfit.full = regsubsets(Life.expectancy~.,data=clean.df, nvmax=6)
+reglife.bwd=regsubsets(Life.expectancy~.,data=clean.df,method="backward",nvmax=10)
+
+```
+
+Forward Selection using Caret Package
 ```{r}
 fitControlForward<-trainControl(method="cv")
 x=model.matrix(Life.expectancy~.,training)[,-1]
+colnames(x)
+View(x)
 y=training$Life.expectancy
 f.fit<-train(x=x,y=y, 
                method="leapForward",
@@ -49,38 +73,8 @@ f.fit
 ```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ```{r}
-
-
-
-#We must split using the method above, with Caret package.
-#Random Train/Test split of 80%
-# splitPerc = 0.80
-# theIndex = sample(1:dim(df)[1],round(splitPerc * dim(df)[1]))
-# training <-df[theIndex,]
-# validate <-df[-theIndex,]
-
-
-
-#Setting up our details for CV. 
-#Note to check createTimeSlices if interested in splitting data on time
-
-#?createTimeSlices
+library(glmnet)
 fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
 #To get model names for `method`
 names(getModelInfo())
@@ -118,12 +112,32 @@ varImp(glmnet.fit)
 plot(varImp(glmnet.fit))
 ```
 
-Lasso
+Lasso with glmnet Package
 ```{r}
+library(glmnet)
+x <- model.matrix(Life.expectancy~.,training)[,-1]
+y <- training$Life.expectancy
+xtest <- model.matrix(Life.expectancy~.,validate)[,-1]
+ytest <- validate$Life.expectancy
 
 
+grid=10^seq(10,-2, length =100)
+lasso.mod=glmnet(x,y,alpha=1, lambda=grid)
 
+cv.out=cv.glmnet(x,y,alpha=1) #alpha=1 performs LASSO
+plot(cv.out)
+
+bestlambda <- cv.out$lambda.min
+bestlambda
+lasso.pred=predict(lasso.mod ,s=bestlambda ,newx=xtest)
+testMSE_LASSO<-mean((ytest-lasso.pred)^2)
+testMSE_LASSO
+
+coef(lasso.mod,s=bestlambda)
 ```
 
 
+```{r}
+
+```
 
