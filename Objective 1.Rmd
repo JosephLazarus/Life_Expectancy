@@ -27,7 +27,7 @@ trainIndex<-createDataPartition(clean.df$Life.expectancy,p=.8,list=F)
 training<-clean.df[trainIndex,]
 validate<-clean.df[-trainIndex,]
 
-#We must split using the method above, with caret.
+#We must split using the method above, with Caret package.
 #Random Train/Test split of 80%
 # splitPerc = 0.80
 # theIndex = sample(1:dim(df)[1],round(splitPerc * dim(df)[1]))
@@ -43,7 +43,8 @@ dim(validate)
 
 #?createTimeSlices
 fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
-
+#To get model names for `method`
+names(getModelInfo())
 #GLM Net Model (selecting tuning parameters alpha and lambda via 10 FOLD CV)
 set.seed(1234)
 glmnet.fit<-train(Life.expectancy~.,
@@ -78,8 +79,9 @@ varImp(glmnet.fit)
 plot(varImp(glmnet.fit))
 ```
 
-
+Lasso
 ```{r}
+
 
 
 ```
