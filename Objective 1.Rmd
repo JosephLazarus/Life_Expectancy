@@ -114,7 +114,6 @@ plot(varImp(glmnet.fit))
 
 Lasso with glmnet Package
 ```{r}
-library(glmnet)
 x <- model.matrix(Life.expectancy~.,training)[,-1]
 y <- training$Life.expectancy
 xtest <- model.matrix(Life.expectancy~.,validate)[,-1]
@@ -130,14 +129,48 @@ plot(cv.out)
 bestlambda <- cv.out$lambda.min
 bestlambda
 lasso.pred=predict(lasso.mod ,s=bestlambda ,newx=xtest)
-testMSE_LASSO<-mean((ytest-lasso.pred)^2)
-testMSE_LASSO
+testRMSE_LASSO<-sqrt(mean((ytest-lasso.pred)^2))
+testRMSE_LASSO
 
 coef(lasso.mod,s=bestlambda)
 ```
 
-
+Lasso with caret
 ```{r}
-summary(df)
+set.seed(1234)
+x <- model.matrix(Life.expectancy~.,training)[,-1]
+y <- training$Life.expectancy
+xtest <- model.matrix(Life.expectancy~.,validate)[,-1]
+ytest <- validate$Life.expectancy
+grid=10^seq(10,-2, length =100)
+lasso<-train(y= y,
+                 x = x,
+                 method = 'glmnet', 
+                 tuneGrid = expand.grid(alpha = 1, lambda = grid)
+               ) 
+
+ridge <-train(y=y, x = x, method = 'glmnet',tuneGrid = expand.grid(alpha = 0, lambda = grid))
+
+predictions_lasso <- lasso %>% predict(xtest)
+predictions_ridge <- ridge %>% predict(xtest)
+
+Lasso_RMSE = RMSE(predictions_lasso, ytest)
+Lasso_RMSE
+
+
+Ridge_RMSE = RMSE(predictions_ridge, ytest)
+Ridge_RMSE
+
+#Post resample - Lasso
+lasso.validate<-postResample(pred = predictions_lasso, obs = validate$Life.expectancy)
+lasso.validate
+ridge.validate<-postResample(pred = predictions_ridge, obs = validate$Life.expectancy)
+ridge.validate
+
+coef(lasso$finalMode,lasso$finalModel$lambdaOpt)
+varImp(lasso)
+coef(ridge$finalModel,ridge$finalModel$lambdaOpt)
+varImp(ridge)
 ```
+
 
