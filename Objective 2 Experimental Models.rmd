@@ -11,25 +11,40 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+rated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r life expectancy data}
-#data is cleaned and scaled (Friday May 28th)
+library(ggplot2)
+
+#data is cleaned and scaled (Friday May 31th)
 df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/clean_scaled.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+
+
+#removing NA's causing problems with dates. too many fields still missing
+#which(is.na(df))
+
+#still finding NAS remove them
+df <- na.omit(df)
+
+
 ```
 
-Here i am checking my models.
+```{r}
+library(ggthemes)
+theme_set(theme_fivethirtyeight())
+theme_update(axis.title = element_text()) #the default for fivethirtyeight is to not show axis labels, this removes that default so we can choose to specify and display axis titles
+theme_update(plot.title = element_text(hjust = 0.5))
+```
 
-IMPORTANT:  I have not done a split on date. Date is not present in this cleaned_scaled.csv
+
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
                               Train/Test Split code
+IMPORTANT:  I have not done a split on date. Date is not present in this cleaned_scaled.csv
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-```{r}
+```{r random split}
 
 set.seed(31) # prime number for good luck
 
@@ -48,57 +63,145 @@ dim(testing.data)
 ```
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                         train/test split on Date
+                    
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+```{r Data split}
+training.data <- df[c(df$Year <= 2010),]
+testing.data <- df[c(df$Year > 2010),]
+
+dim(df)
+dim(training.data)
+dim(testing.data)
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                              Step 3.1: Experimental Model Engine
                                        Knn Regression
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-```{r}
+
+```{r knn regression with caret}
 library(caret)
-#step 1 standardize the data. This data set is pre-scaled
+library(plyr)
+knn2 <- knnreg(training.data$Life.expectancy ~ ., data = training.data, k=2)
 
-#K Nearest Neighbors Regression using Caret
+train.knn = function(mr.rogers){
+  knnreg(training.data$Life.expectancy ~., data = training.data, k=mr.rogers)
+} 
+
+test.knn =  function(mr.rogers){
+  knnreg(testing.data$Life.expectancy ~., data = testing.data, k=mr.rogers)
+} 
+
+k.to.try <- seq(1,50, by = 1)
+#create and store list knn predictions for k = 1 thru fiddy
+knn.list.train = lapply(k.to.try, train.knn)
+knn.list.test = lapply(k.to.try, test.knn)
 
 
-#Tuning the Hyperparameter K
-k.to.try = seq(1,20, by = 1)
+#create and store list of predictions
+knn.train.predictions <- lapply(knn.list.train, predict, training.data)
+knn.test.predictions <- lapply(knn.list.test, predict, testing.data)
+```
 
-train.knn <- function(mr.rogers) {
-  knnreg(training.data$Life.expectancy ~ ., data = training.data, k = mr.rogers)
+Model Metrics RMSE
+```{r Root Mean Square Error}
+#create function for RMSE
+calc.rmse <- function(actual, predicted){
+  sqrt(mean(actual - predicted)^2)
 }
 
-knn.list <- lapply(k.to.try, train.knn)
-
-calc.rmse = function(actual, predicted) {
-  sqrt(mean((actual - predicted)^2))
-}
-
-knn.train.predictions <- lapply(knn.list, predict, training.data)
-knn.test.predictions <- lapply(knn.list, predict, testing.data)
-
-
+#create and store matrix of RMSE
 knn.rmse.train <- sapply(knn.train.predictions, calc.rmse, actual = training.data$Life.expectancy)
 knn.rmse.test <- sapply(knn.test.predictions, calc.rmse, actual = testing.data$Life.expectancy)
 
-k.to.try[which.min(knn.rmse.test)]
-
+#RMSE plot of training vs predicted 
 plot(k.to.try, knn.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
-     ylim = range(c(knn.rmse.test, knn.rmse.train)), 
-    xlab = "K Neighbors",
+     ylim = range(c(knn.rmse.test, knn.rmse.train)),
+     xlab = "K Neighbors",
     ylab = "RMSE Specificy units (years?",
-    main = "Test and Training set RMSE vs K")
-
+    main = "Test and Training RMSE vs K")
 lines(k.to.try, knn.rmse.train, type = "b", col = "darkorange", pch = 23)
-legend("bottomright", c("Train RMSE", "Test RMSE"), 
+legend("topright", c("Train RMSE", "Test RMSE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
        pch = c(23, 20))
+grid()
+```
 
-# lowest looks like knn = 3
+model Metrics ASE
+```{r ASE}
 
-knnt3 <- knnreg(training.data$Life.expectancy ~ ., data = training.data, k=3)
-data.mod.knnt3 <- data.frame(predicted = predict(knnt3), observed= training.data$Life.expectancy)
+#create function for MSE / ASE
+calc.ase <- function(actual, predicted){
+  (mean(actual - predicted)^2)
+}
 
-knnt3.mse <- mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2)
-knnt3.rmse <- sqrt(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2))
+#create and store matrix of RMSE
+knn.ase.train <- sapply(knn.train.predictions, calc.ase, actual = training.data$Life.expectancy)
+knn.ase.test <- sapply(knn.test.predictions, calc.ase, actual = testing.data$Life.expectancy)
+
+plot(k.to.try, knn.ase.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(knn.ase.test, knn.rmse.train)),
+     xlab = "K Neighbors",
+    ylab = "ASE",
+    main = "Test and Training ASE vs K")
+lines(k.to.try, knn.ase.train, type = "b", col = "darkorange", pch = 23)
+legend("topright", c("Train ASE", "Test ASE"), 
+       col = c("darkorange", "dodgerblue"),
+       lty = c(1), 
+       pch = c(23, 20))
+grid()
+```
+
+```{r f-ing ggplot}
+#~~~~~~~~~~~~~~~~~~F you ggplot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#knnValues <- c(1:50)
+#knn.rmse.train <-ldply(knn.train.predictions, calc.rmse, actual = training.data$Life.expectancy)
+#knn.rmse.test <- ldply(knn.test.predictions, calc.rmse, actual = testing.data$Life.expectancy)
+
+#df.rmse = as.data.frame(cbind(knnValues, knn.rmse.train , knn.rmse.test))
+
+#colnames(df.rmse) <- c('k_value','RMSE_train','RMSE_test')
+
+#ggplot(data = df.rmse, aes(x=k_value)) +
+#  geom_line(aes(y=RMSE_train), color = "darkred") +
+#  geom_line(aes(y=RMSE_test), color = "steelblue") +
+#  labs(title = "RMSE of training vs Test Set" , x= "Value of K", y = 'RMSE') +
+#  theme(legend.position = "botoom")
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+
+```
+
+Model Diagnostics
+```{r predicted vs expected}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#removing country column from the data. 
+#maybe set it to factor instead?
+
+training.knn <- training.data[,-1]
+
+testing.knn <- testing.data[,-1]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+# lowest looks like knn = 38
+
+# x = data frame of training set predictors
+# y = numeric vector of outcomes
+knnt3 <- knnreg(x= training.knn[,-2], y=training.knn[,2], k=38)
+
+predict(knnt3, newdata = testing.knn[,-2])
+
+data.mod.knnt3 <- data.frame(predicted = predict(knnt3, newdata = testing.knn[-2]), observed= testing.knn[,2])
+
+knnt3.mse <- round(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2), digits = 3)
+knnt3.rmse <- round(sqrt(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2)), digits = 3)
 
 #they said it couldn't be done but I did it. plotted observed vs predicted with caret package. 
 ggplot(data.mod.knnt3,                                     
@@ -112,6 +215,13 @@ ggplot(data.mod.knnt3,
 table(knnt3.mse, knnt3.rmse)
 
 #find another knn regression model outside of caret
+#install.packages("FNN", dependencies = TRUE, INSTALL_opts = '--no-lock')
+library(FNN)
+
+```
+
+```{r knn with selected variables}
+
 
 ```
 
@@ -162,5 +272,34 @@ ggplot(data.mod.dt,
               color = "red",
               size = 2)
 
+
+```
+
+
+```{r}
+
+library(glmnet)
+
+
+
+x = model.matrix(training.data$Life.expectancy ~ . , training.data)[,-1]
+y = training.data$Life.expectancy
+
+xtest<-model.matrix(testing.data$Life.expectancy~.,testing.data)[,-1]
+ytest<-(testing.data$Life.expectancy)
+
+grid=10^seq(10,-2, length =100)
+lasso.mod=glmnet(x,y,alpha=1, lambda =grid)
+
+cv.out=cv.glmnet(x,y,alpha=1) #alpha=1 performs LASSO
+plot(cv.out)
+bestlambda<-cv.out$lambda.min  #Optimal penalty parameter.  You can make this call visually.
+lasso.pred=predict (lasso.mod ,s=bestlambda ,newx=xtest)
+
+testMSE_LASSO<-mean((ytest-lasso.pred)^2)
+testMSE_LASSO
+
+
+coef(lasso.mod,s=bestlambda)
 
 ```
