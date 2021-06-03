@@ -74,6 +74,9 @@ testing.data <- df[c(df$Year > 2010),]
 dim(df)
 dim(training.data)
 dim(testing.data)
+
+training.data <- subset(training.data, select = -c(Country,Year))
+testing.data <- subset(testing.data, select = -c(Country, Year))
 ```
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,6 +126,8 @@ plot(k.to.try, knn.rmse.test, type = "b", col = "dodgerblue", pch = 20,
     ylab = "RMSE Specificy units (years?",
     main = "Test and Training RMSE vs K")
 lines(k.to.try, knn.rmse.train, type = "b", col = "darkorange", pch = 23)
+index<-which(knn.rmse.test ==min(knn.rmse.test))
+points(index,knn.ase.test[index],col="red",pch=10)
 legend("topright", c("Train RMSE", "Test RMSE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
@@ -148,11 +153,16 @@ plot(k.to.try, knn.ase.test, type = "b", col = "dodgerblue", pch = 20,
     ylab = "ASE",
     main = "Test and Training ASE vs K")
 lines(k.to.try, knn.ase.train, type = "b", col = "darkorange", pch = 23)
+index<-which(knn.ase.test ==min(knn.ase.test))
+points(index,knn.ase.test[index],col="red",pch=10)
 legend("topright", c("Train ASE", "Test ASE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
        pch = c(23, 20))
 grid()
+
+
+
 ```
 
 ```{r f-ing ggplot}
@@ -184,9 +194,6 @@ Model Diagnostics
 #removing country column from the data. 
 #maybe set it to factor instead?
 
-training.knn <- training.data[,-1]
-
-testing.knn <- testing.data[,-1]
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -194,14 +201,41 @@ testing.knn <- testing.data[,-1]
 
 # x = data frame of training set predictors
 # y = numeric vector of outcomes
-knnt3 <- knnreg(x= training.knn[,-2], y=training.knn[,2], k=38)
+knnt3 <- knnreg(x= training.data[,-1], y=training.data[,1], k=1)
 
-predict(knnt3, newdata = testing.knn[,-2])
+#predict(knnt3, newdata = testing.data[,-1])
 
-data.mod.knnt3 <- data.frame(predicted = predict(knnt3, newdata = testing.knn[-2]), observed= testing.knn[,2])
+#data frame of predicted vs expected
+data.mod.knnt3 <- data.frame(predicted = predict(knnt3, newdata = testing.data[-1]), observed= testing.data[,1])
 
 knnt3.mse <- round(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2), digits = 3)
 knnt3.rmse <- round(sqrt(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2)), digits = 3)
+
+
+
+
+
+table(knnt3.mse, knnt3.rmse)
+
+
+
+```
+
+```{r AIC knn}
+
+AIC <- function(y, y_pred, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC = 2*k - 2*log(sse)
+  return(AIC)
+}
+
+
+AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, 19)
+
+```
+
+```{r knn predicted vs expected}
 
 #they said it couldn't be done but I did it. plotted observed vs predicted with caret package. 
 ggplot(data.mod.knnt3,                                     
@@ -212,17 +246,19 @@ ggplot(data.mod.knnt3,
               slope = 1,
               color = "red",
               size = 2)
-table(knnt3.mse, knnt3.rmse)
-
-#find another knn regression model outside of caret
-#install.packages("FNN", dependencies = TRUE, INSTALL_opts = '--no-lock')
-library(FNN)
 
 ```
 
 ```{r knn with selected variables}
 
 
+```
+
+```{r}
+
+#find another knn regression model outside of caret
+#install.packages("FNN", dependencies = TRUE, INSTALL_opts = '--no-lock')
+library(FNN)
 ```
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,12 +270,16 @@ library(FNN)
 library(rpart)
 library(rpart.plot)
 
+
+
 dt.test.model <- rpart(training.data$Life.expectancy ~ ., data = training.data, method = 'anova', cp = .001)
 
 rpart.plot(dt.test.model)
 
 dt.model.pred = predict(dt.test.model, newdata = testing.data[,-1])
+```
 
+```{r tunning DT model}
 #tunning the hyperparameter CP : default 0.01
 # this means that the overall R-squared must increase by cp
 # luckily plotcp does this for us!
@@ -250,19 +290,29 @@ printcp(dt.test.model)
 #i like round 17 cp = .0029175
 # lets discuss why
 
-dt.model <-  rpart(training.data$Life.expectancy ~ ., data = training.data, method = 'anova', cp = 0.0029175)
+dt.model <-  rpart(training.data$Life.expectancy ~ ., data = training.data, method = 'anova', cp = 0.007)
 
 rpart.plot(dt.model)
 
-dt.model.pred <- predict(dt.model, newdata = testing.data[,-1])
+dt.model.pred <- predict(dt.model, newdata = testing.data[,-1], cp = 0.007)
 
 dt.model.ASE = mean((testing.data[,1] - predict(dt.model, testing.data[,-1]))^2)
 dt.model.RMSE = sqrt(mean((testing.data[,1] - predict(dt.model, testing.data[,-1]))^2))
 
 data.mod.dt <- data.frame(predicted = predict(dt.model), observed= training.data$Life.expectancy)
 
+summary(dt.model)
+AIC(dt.model)
 # Draw plot using ggplot2 package this time
+```
 
+```{r AIC decesion tree}
+
+AIC(data.mod.dt$observed, data.mod.dt$predicted, 19)
+
+```
+
+```{r DT model Expected Vs predicted}
 ggplot(data.mod.dt,                                     
        aes(x = predicted,
            y = observed)) +
@@ -272,9 +322,7 @@ ggplot(data.mod.dt,
               color = "red",
               size = 2)
 
-
 ```
-
 
 ```{r}
 
