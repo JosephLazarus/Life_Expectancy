@@ -147,6 +147,27 @@ coef(f.fit$finalModel,f.fit$finalModel$nrbar)
 ```
 
 
+```{r}
+#21 nu
+# n is number of obs
+# k is number of parameters
+#
+
+AIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
+knn.38AIC <- AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
+```
+
+
+```{r}
+
+cst.lm.df.5var <- data.frame(predicted = predict(knnt3, newdata = cs.testing.data[-1]), observed= cs.testing.data[,1])
+
+```
 
 
 

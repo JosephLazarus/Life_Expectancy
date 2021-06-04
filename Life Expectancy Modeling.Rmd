@@ -81,7 +81,7 @@ cst.glmnet.resamp
 #Ranking of the predictors
 list(varImp(cst.glmnet.fit))
 plot(varImp(cst.glmnet.fit))
-#Top 6 in order of importance features selected by the Elastic Net Model
+# Top 5 in order of importance features selected by the Elastic Net Model
 #  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
 
 ```
@@ -118,10 +118,10 @@ coef(cst.Lasso$finalMode,cst.Lasso$finalModel$lambdaOpt)
 
 varImp(cst.Lasso)
 plot(varImp(cst.Lasso))
-
-#Top 6 in order of importance features selected by of Lasso
+# 
+# Top 5 in order of importance features selected by of Lasso
 #  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
-#Selected the same variables as Elastic Net
+# Selected the same variables as Elastic Net
 
 ```
 
@@ -146,11 +146,14 @@ coef(cst.Ridge$finalModel,cst.Ridge$finalModel$lambdaOpt)
 
 varImp(cst.Ridge)
 plot(varImp(cst.Ridge))
-#Top 4 in order of importance features selected by of Ridge
+# Top 4 in order of importance features selected by of Ridge
 #  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
-#Selected the same variables as Ridge
+# Selected the same variables as Ridge
 
 ```
+
+
+
 
 Variable Selection - Forward
 ```{r}
@@ -173,10 +176,23 @@ coef(cst.f.fit$finalModel)
 
 #Top  in order of importance features selected by Forward Selection
 #  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
-#Selected the same variables as Forward Selectin
+#Selected the same variables as Forward Selection
 
 ```
 
+Top 5 in order of importance features selected by the Elastic Net Model
+ (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
+ 
+Top 5 in order of importance features selected by of Lasso
+ (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
+Selected the same variables as Elastic Net
+
+Top 4 in order of importance features selected by Ridge
+ (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
+Selected the same variables as Ridge)
+(Left out log.EstGDPpercapita)
+
+Moving Forward from variable selection. Now we will check our models using LM with variables selected by Lasso, Elastic Net, and Ridge.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                                  Model Metrics
