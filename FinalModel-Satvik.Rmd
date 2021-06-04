@@ -59,8 +59,10 @@ coef(glmnet.fit$finalModel,glmnet.fit$finalModel$lambdaOpt)
 
 ```{r}
 #Creating using the test set. Resulting in the RMSE of the validation set
-glmnet.pred<-predict(glmnet.fit, cst.test)
+glmnet.pred<-predict(glmnet.fit, newdata = cst.test[,-1], observed = cst.test[,1])
 RMSE(glmnet.pred, cst.test$Life.expectancy)
+
+
 
 #RMSE
 glmnet.RMSE<-sqrt(mean((cst.test$Life.expectancy-glmnet.pred)^2))
