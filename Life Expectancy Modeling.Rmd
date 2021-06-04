@@ -3,7 +3,7 @@ title: "Life Expectancy Modeling"
 author: "Satvik, Joe, and Rick"
 output: html_notebook
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 ```{r}
 library(ggthemes)
@@ -40,6 +40,55 @@ dim(cst.test)
 cst.training <- subset(cst.training, select = -c(Country,Year))
 cst.test <- subset(cst.test, select = -c(Country, Year))
 ```
+
+Variable Selection
+Elastic Net Model with 10 Fold Cross Validation
+```{r}
+library(glmnet)
+fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
+# fitControl<-trainControl(method="none")
+
+#GLM Net Model (selecting tuning parameters alpha and lambda via 10 FOLD CV)
+# set.seed(1234)
+cst.glmnet.fit<-train(Life.expectancy~.,
+               data=cst.training,
+               method="glmnet",
+               trControl = fitControl,
+               na.action = na.omit
+               )
+#glmnet.fit results
+cst.glmnet.fit
+#Model Coefficients
+coef(cst.glmnet.fit$finalModel,cst.glmnet.fit$finalModel$lambdaOpt)
+```
+
+```{r}
+#Creating using the test set. Resulting in the RMSE of the validation set
+cst.glmnet.pred<-predict(cst.glmnet.fit, newdata = cst.test[,-1], observed = cst.test[,1])
+RMSE(cst.glmnet.pred, cst.test$Life.expectancy)
+
+#RMSE
+glmnet.RMSE<-sqrt(mean((cst.test$Life.expectancy-glmnet.pred)^2))
+glmnet.RMSE
+plot(cst.glmnet.pred, cst.test$Life.expectancy, ylim=c(40,100), xlim=c(40,100))
+lines(0:100,0:100)
+
+
+#Here is a more natural tool to compute RMSE as well as some additional metrics
+cst.glmnet.resamp<-postResample(pred = cst.glmnet.pred, obs = cst.test$Life.expectancy)
+cst.glmnet.resamp
+
+#Ranking of the predictors
+list(varImp(cst.glmnet.fit))
+plot(varImp(cst.glmnet.fit))
+#Top 6 in order of importance features selected by of Elastic Net Model
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
+
+
+```
+
+
+
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                                  Model Metrics
                                AIC BIC RMSE MSE

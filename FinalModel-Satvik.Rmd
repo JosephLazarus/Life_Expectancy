@@ -3,7 +3,7 @@ title: "Life Expectancy Modeling"
 author: "Satvik"
 output: html_notebook
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 ```{r}
 library(ggthemes)
@@ -40,79 +40,113 @@ cst.test <- subset(cst.test, select = -c(Country, Year))
 
 ```{r}
 library(glmnet)
-# fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
+fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
 # fitControl<-trainControl(method="none")
-#To get model names for `method`
-names(getModelInfo())
+
 #GLM Net Model (selecting tuning parameters alpha and lambda via 10 FOLD CV)
 # set.seed(1234)
-glmnet.fit<-train(Life.expectancy~.,
+cst.glmnet.fit<-train(Life.expectancy~.,
                data=cst.training,
                method="glmnet",
+               trControl = fitControl,
                na.action = na.omit
                )
 #glmnet.fit results
-glmnet.fit
+cst.glmnet.fit
 #Model Coefficients
-coef(glmnet.fit$finalModel,glmnet.fit$finalModel$lambdaOpt)
+coef(cst.glmnet.fit$finalModel,cst.glmnet.fit$finalModel$lambdaOpt)
 ```
 
 ```{r}
 #Creating using the test set. Resulting in the RMSE of the validation set
-glmnet.pred<-predict(glmnet.fit, newdata = cst.test[,-1], observed = cst.test[,1])
-RMSE(glmnet.pred, cst.test$Life.expectancy)
+cst.glmnet.pred<-predict(cst.glmnet.fit, newdata = cst.test[,-1], observed = cst.test[,1])
+RMSE(cst.glmnet.pred, cst.test$Life.expectancy)
 
 #RMSE
 glmnet.RMSE<-sqrt(mean((cst.test$Life.expectancy-glmnet.pred)^2))
 glmnet.RMSE
-plot(glmnet.pred,cst.test$Life.expectancy,ylim=c(40,100),xlim=c(40,100))
+plot(cst.glmnet.pred, cst.test$Life.expectancy, ylim=c(40,100), xlim=c(40,100))
 lines(0:100,0:100)
 
 
 #Here is a more natural tool to compute RMSE as well as some additional metrics
-glmnet.test<-postResample(pred = glmnet.pred, obs = cst.test$Life.expectancy)
-glmnet.test
+cst.glmnet.resamp<-postResample(pred = cst.glmnet.pred, obs = cst.test$Life.expectancy)
+cst.glmnet.resamp
 
 #Ranking of the predictors
-varImp(glmnet.fit)
-plot(varImp(glmnet.fit))
+varImp(cst.glmnet.fit)
+plot(varImp(cst.glmnet.fit))
 ```
 
 ```{r}
-x <- model.matrix(Life.expectancy~.,training)[,-1]
-y <- training$Life.expectancy
-xtest <- model.matrix(Life.expectancy~.,validate)[,-1]
-ytest <- validate$Life.expectancy
-grid=10^seq(10,-2, length =100)
-lasso<-train(y= y,
-                 x = x,
-                 method = 'glmnet', 
-                 tuneGrid = expand.grid(alpha = 1, lambda = grid)
-               ) 
+X <- model.matrix(Life.expectancy~.,cst.training)[,-1]
 
-ridge <-train(y=y, x = x, method = 'glmnet',tuneGrid = expand.grid(alpha = 0, lambda = grid))
+y <- cst.training$Life.expectancy
 
-predictions_lasso <- lasso %>% predict(xtest)
-predictions_ridge <- ridge %>% predict(xtest)
+xTest <- model.matrix(Life.expectancy~.,cst.test)[,-1]
 
-Lasso_RMSE = RMSE(predictions_lasso, ytest)
-Lasso_RMSE
+yTest <- cst.test$Life.expectancy
 
+lambdaGrid = 10^seq(10,-2, length =100)
 
-Ridge_RMSE = RMSE(predictions_ridge, ytest)
-Ridge_RMSE
+cst.Lasso<-train(y = y,
+             x = X,
+             method = 'glmnet',
+             tuneGrid = expand.grid(alpha = 1, lambda = lambdaGrid),
+             na.action = na.omit
+             )
 
-#Post resample - Lasso
-lasso.validate<-postResample(pred = predictions_lasso, obs = validate$Life.expectancy)
-lasso.validate
-ridge.validate<-postResample(pred = predictions_ridge, obs = validate$Life.expectancy)
-ridge.validate
+cst.Ridge <-train(y = y, 
+              x = X,
+              method = 'glmnet',
+              tuneGrid = expand.grid(alpha = 0, lambda = lambdaGrid),
+              na.action = na.omit
+              )
 
-coef(lasso$finalMode,lasso$finalModel$lambdaOpt)
-varImp(lasso)
-coef(ridge$finalModel,ridge$finalModel$lambdaOpt)
-varImp(ridge)
+cst.Lasso.pred <- cst.Lasso %>% predict(xTest)
+cst.Ridge.pred <- cst.Lasso %>% predict(xTest)
+
+cst.Lasso_RMSE = RMSE(cst.Lasso.pred, yTest)
+cst.Lasso_RMSE
+
+cst.Ridge_RMSE = RMSE(cst.Ridge.pred, yTest)
+cst.Ridge_RMSE
+
+#Post resample for Lasso Model
+Lasso.test <-postResample(pred = cst.Lasso.pred, obs = cst.test$Life.expectancy)
+Lasso.test
+
+Ridge.test<-postResample(pred = cst.Ridge.pred, obs = cst.test$Life.expectancy)
+Ridge.test
+
+coef(cst.Lasso$finalMode,cst.Lasso$finalModel$lambdaOpt)
+
+varImp(cst.Lasso)
+plot(varImp(cst.Lasso))
+
+coef(cst.Ridge$finalModel,cst.Ridge$finalModel$lambdaOpt)
+
+varImp(cst.Ridge)
+plot(varImp(cst.Ridge))
 ```
+
+
+```{r}
+
+fitControlForward<-trainControl(method="cv")
+cst.f.fit<-train(x=X,
+             y=y,
+             method="leapForward",
+             trControl=fitControlForward,
+             tuneGrid = expand.grid(nvmax = seq(1, 12, 1))
+             )
+cst.f.fit
+plot(cst.f.fit)
+varImp(cst.f.fit)
+coef(f.fit$finalModel,f.fit$finalModel$nrbar)
+```
+
+
 
 
 
