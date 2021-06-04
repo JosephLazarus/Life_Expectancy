@@ -61,6 +61,30 @@ dim(testing.data)
 
 
 ```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                 Model Metrics
+                                    AIC BIC
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+```{r AIC BIC functions}
+AIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
+
+BIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  BIC = n * log(sse/n) + log(n) * (k+1)
+  print(return(BIC))
+}
+
+```
+
+
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                          train/test split on Date
@@ -221,18 +245,26 @@ table(knnt3.mse, knnt3.rmse)
 
 ```
 
-```{r AIC knn}
+```{r AIC & BIC knn}
 
-AIC <- function(y, y_pred, k){
+AIC <- function(y, y_pred, n, k){
   resids = y - y_pred
   sse = sum(resids^2)
-  AIC = 2*k - 2*log(sse)
-  return(AIC)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
+
+BIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  BIC = n * log(sse/n) + log(n) * (k+1)
+  print(return(BIC))
 }
 
 
-AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, 19)
+AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
 
+BIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
 ```
 
 ```{r knn predicted vs expected}
