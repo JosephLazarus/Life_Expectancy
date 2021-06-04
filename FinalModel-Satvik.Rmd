@@ -62,8 +62,6 @@ coef(glmnet.fit$finalModel,glmnet.fit$finalModel$lambdaOpt)
 glmnet.pred<-predict(glmnet.fit, newdata = cst.test[,-1], observed = cst.test[,1])
 RMSE(glmnet.pred, cst.test$Life.expectancy)
 
-
-
 #RMSE
 glmnet.RMSE<-sqrt(mean((cst.test$Life.expectancy-glmnet.pred)^2))
 glmnet.RMSE
@@ -72,14 +70,49 @@ lines(0:100,0:100)
 
 
 #Here is a more natural tool to compute RMSE as well as some additional metrics
-glmnet.validate<-postResample(pred = glmnet.pred, obs = cst.test$Life.expectancy)
-glmnet.validate
+glmnet.test<-postResample(pred = glmnet.pred, obs = cst.test$Life.expectancy)
+glmnet.test
 
 #Ranking of the predictors
 varImp(glmnet.fit)
 plot(varImp(glmnet.fit))
 ```
 
+```{r}
+x <- model.matrix(Life.expectancy~.,training)[,-1]
+y <- training$Life.expectancy
+xtest <- model.matrix(Life.expectancy~.,validate)[,-1]
+ytest <- validate$Life.expectancy
+grid=10^seq(10,-2, length =100)
+lasso<-train(y= y,
+                 x = x,
+                 method = 'glmnet', 
+                 tuneGrid = expand.grid(alpha = 1, lambda = grid)
+               ) 
+
+ridge <-train(y=y, x = x, method = 'glmnet',tuneGrid = expand.grid(alpha = 0, lambda = grid))
+
+predictions_lasso <- lasso %>% predict(xtest)
+predictions_ridge <- ridge %>% predict(xtest)
+
+Lasso_RMSE = RMSE(predictions_lasso, ytest)
+Lasso_RMSE
+
+
+Ridge_RMSE = RMSE(predictions_ridge, ytest)
+Ridge_RMSE
+
+#Post resample - Lasso
+lasso.validate<-postResample(pred = predictions_lasso, obs = validate$Life.expectancy)
+lasso.validate
+ridge.validate<-postResample(pred = predictions_ridge, obs = validate$Life.expectancy)
+ridge.validate
+
+coef(lasso$finalMode,lasso$finalModel$lambdaOpt)
+varImp(lasso)
+coef(ridge$finalModel,ridge$finalModel$lambdaOpt)
+varImp(ridge)
+```
 
 
 
