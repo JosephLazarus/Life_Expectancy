@@ -81,12 +81,101 @@ cst.glmnet.resamp
 #Ranking of the predictors
 list(varImp(cst.glmnet.fit))
 plot(varImp(cst.glmnet.fit))
-#Top 6 in order of importance features selected by of Elastic Net Model
+#Top 6 in order of importance features selected by the Elastic Net Model
 #  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
-
 
 ```
 
+Variable Selection - Lasso
+
+```{r}
+X <- model.matrix(Life.expectancy~.,cst.training)[,-1]
+
+y <- cst.training$Life.expectancy
+
+xTest <- model.matrix(Life.expectancy~.,cst.test)[,-1]
+
+yTest <- cst.test$Life.expectancy
+
+lambdaGrid = 10^seq(10,-2, length =100)
+
+cst.Lasso<-train(y = y,
+             x = X,
+             method = 'glmnet',
+             tuneGrid = expand.grid(alpha = 1, lambda = lambdaGrid),
+             na.action = na.omit
+             )
+
+cst.Lasso.pred <- cst.Lasso %>% predict(xTest)
+
+cst.Lasso_RMSE = RMSE(cst.Lasso.pred, yTest)
+cst.Lasso_RMSE
+
+Lasso.test <-postResample(pred = cst.Lasso.pred, obs = cst.test$Life.expectancy)
+Lasso.test
+
+coef(cst.Lasso$finalMode,cst.Lasso$finalModel$lambdaOpt)
+
+varImp(cst.Lasso)
+plot(varImp(cst.Lasso))
+
+#Top 6 in order of importance features selected by of Lasso
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
+#Selected the same variables as Elastic Net
+
+```
+
+Variable Selection with Ridge
+```{r}
+#Recheck RMSE for Ridge and Lasso. getting the same values.
+cst.Ridge <-train(y = y, 
+              x = X,
+              method = 'glmnet',
+              tuneGrid = expand.grid(alpha = 0, lambda = lambdaGrid),
+              na.action = na.omit
+              )
+cst.Ridge.pred <- cst.Lasso %>% predict(xTest)
+
+cst.Ridge_RMSE = RMSE(cst.Ridge.pred, yTest)
+cst.Ridge_RMSE
+
+Ridge.test<-postResample(pred = cst.Ridge.pred, obs = cst.test$Life.expectancy)
+Ridge.test
+
+coef(cst.Ridge$finalModel,cst.Ridge$finalModel$lambdaOpt)
+
+varImp(cst.Ridge)
+plot(varImp(cst.Ridge))
+#Top 4 in order of importance features selected by of Ridge
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
+#Selected the same variables as Ridge
+
+```
+
+Variable Selection - Forward
+```{r}
+#get coef for forward selection
+fitControlForward<-trainControl(method="cv")
+
+cst.f.fit<-train(x=X,
+             y=y,
+             method="leapForward",
+             trControl=fitControlForward,
+             tuneGrid = expand.grid(nvmax = seq(1, 12, 1))
+             )
+cst.f.fit
+plot(cst.f.fit)
+varImp(cst.f.fit,)
+plot(varImp(cst.f.fit))
+
+coef(cst.f.fit$finalModel, cst.f.fit$finalModel$last)
+coef(cst.f.fit$finalModel)
+
+#Top  in order of importance features selected by Forward Selection
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
+#Selected the same variables as Forward Selectin
+
+```
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
