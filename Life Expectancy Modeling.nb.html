@@ -218,8 +218,33 @@ pre code {
 
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeShnZ3RoZW1lcylcbnRoZW1lX3NldCh0aGVtZV9maXZldGhpcnR5ZWlnaHQoKSlcbnRoZW1lX3VwZGF0ZShheGlzLnRpdGxlID0gZWxlbWVudF90ZXh0KCkpICN0aGUgZGVmYXVsdCBmb3IgZml2ZXRoaXJ0eWVpZ2h0IGlzIHRvIG5vdCBzaG93IGF4aXMgbGFiZWxzLCB0aGlzIHJlbW92ZXMgdGhhdCBkZWZhdWx0IHNvIHdlIGNhbiBjaG9vc2UgdG8gc3BlY2lmeSBhbmQgZGlzcGxheSBheGlzIHRpdGxlc1xudGhlbWVfdXBkYXRlKHBsb3QudGl0bGUgPSBlbGVtZW50X3RleHQoaGp1c3QgPSAwLjUpKVxuYGBgIn0= -->
+<pre class="r"><code>library(ggthemes)
+theme_set(theme_fivethirtyeight())
+theme_update(axis.title = element_text()) #the default for fivethirtyeight is to not show axis labels, this removes that default so we can choose to specify and display axis titles
+theme_update(plot.title = element_text(hjust = 0.5))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuZGltKGNzdC50ZXN0KVxuXG5gYGAifQ== -->
+<pre class="r"><code>dim(cst.test)
+</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiWzFdIDg2OCAgMjJcbiJ9 -->
+<pre><code>[1] 868  22</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
 
-<div id="rmd-source-code">LS0tCnRpdGxlOiAiTGlmZSBFeHBlY3RhbmN5IE1vZGVsaW5nIgphdXRob3I6ICJTYXR2aWssIEpvZSwgYW5kIFJpY2siCm91dHB1dDogaHRtbF9ub3RlYm9vawplZGl0b3Jfb3B0aW9uczogCiAgY2h1bmtfb3V0cHV0X3R5cGU6IGlubGluZQotLS0KCg==</div>
+<div id="rmd-source-code">LS0tCnRpdGxlOiAiTGlmZSBFeHBlY3RhbmN5IE1vZGVsaW5nIgphdXRob3I6ICJTYXR2aWssIEpvZSwgYW5kIFJpY2siCm91dHB1dDogaHRtbF9ub3RlYm9vawplZGl0b3Jfb3B0aW9uczogCiAgY2h1bmtfb3V0cHV0X3R5cGU6IGlubGluZQotLS0KYGBge3J9CmxpYnJhcnkoZ2d0aGVtZXMpCnRoZW1lX3NldCh0aGVtZV9maXZldGhpcnR5ZWlnaHQoKSkKdGhlbWVfdXBkYXRlKGF4aXMudGl0bGUgPSBlbGVtZW50X3RleHQoKSkgI3RoZSBkZWZhdWx0IGZvciBmaXZldGhpcnR5ZWlnaHQgaXMgdG8gbm90IHNob3cgYXhpcyBsYWJlbHMsIHRoaXMgcmVtb3ZlcyB0aGF0IGRlZmF1bHQgc28gd2UgY2FuIGNob29zZSB0byBzcGVjaWZ5IGFuZCBkaXNwbGF5IGF4aXMgdGl0bGVzCnRoZW1lX3VwZGF0ZShwbG90LnRpdGxlID0gZWxlbWVudF90ZXh0KGhqdXN0ID0gMC41KSkKYGBgCgpgYGB7cn0KI0ltcG9ydCBDbGVhbiwgU2NhbGVkLCBhbmQgVHJhbnNmb3JtZWQgQ1NWIApjc3QuZGYgPC0gcmVhZC5jc3YoImh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS9Kb3NlcGhMYXphcnVzL0xpZmVfRXhwZWN0YW5jeS9tYWluL0RhdGFfRm9sZGVyL2NsZWFuX3NjYWxlZC5jc3YiLCBoZWFkZXIgPSBUUlVFLCBmaWxlRW5jb2Rpbmc9IlVURi04LUJPTSIpCgpjc3QuZGYkRGV2ZWxvcGVkID0gYXMuZmFjdG9yKGNzdC5kZiREZXZlbG9wZWQpIAojSW1wb3J0IGNsZWFuZWQgc2NhbGVkIAojaW1wb3J0IGNsZWFuZWQKCiNNdXN0IG9taXQgdmFsdWVzIGJlZm9yZSBydW5uaW5nIG1vZGVsCmNzdC5kZiA8LSBuYS5vbWl0KGNzdC5kZikKYGBgCgpgYGB7cn0KI1RyYWluIC8gVGVzdCBzcGxpdCBieSBZZWFyCmNzdC50cmFpbmluZyA8LSBjc3QuZGZbYyhjc3QuZGYkWWVhciA8PSAyMDEwKSxdCmNzdC50ZXN0IDwtIGNzdC5kZltjKGNzdC5kZiRZZWFyID4gMjAxMCksXQoKZGltKGNzdC5kZikKZGltKGNzdC50cmFpbmluZykKZGltKGNzdC50ZXN0KQoKY3N0LnRyYWluaW5nIDwtIHN1YnNldChjc3QudHJhaW5pbmcsIHNlbGVjdCA9IC1jKENvdW50cnksWWVhcikpCmNzdC50ZXN0IDwtIHN1YnNldChjc3QudGVzdCwgc2VsZWN0ID0gLWMoQ291bnRyeSwgWWVhcikpCmBgYAoK</div>
 
 
 
