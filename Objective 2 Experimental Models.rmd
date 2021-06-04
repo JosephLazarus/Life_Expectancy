@@ -51,13 +51,13 @@ set.seed(31) # prime number for good luck
 sample_size = round(nrow(df)*.70) # setting what is 70%
 index <- sample(seq_len(nrow(df)), size = sample_size)
 
-cs.training.data <- df[index, ]
-cs.testing.data <- df[-index, ]
+cst.training <- df[index, ]
+cst.testing.data <- df[-index, ]
 
 #sanity check the split
 dim(df)
-dim(cs.training.data)
-dim(cs.testing.data)
+dim(cst.training)
+dim(cst.testing.data)
 
 
 ```
@@ -68,15 +68,15 @@ dim(cs.testing.data)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ```{r Data split}
-cs.training.data <- df[c(df$Year <= 2010),]
-cs.testing.data <- df[c(df$Year > 2010),]
+cst.training <- df[c(df$Year <= 2010),]
+cst.testing.data <- df[c(df$Year > 2010),]
 
 dim(df)
-dim(cs.training.data)
-dim(cs.testing.data)
+dim(cst.training)
+dim(cst.testing.data)
 
-cs.training.data <- subset(cs.training.data, select = -c(Country,Year))
-cs.testing.data <- subset(cs.testing.data, select = -c(Country, Year))
+cst.training <- subset(cst.training, select = -c(Country,Year))
+cst.testing.data <- subset(cst.testing.data, select = -c(Country, Year))
 ```
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,25 +120,25 @@ calc.ase <- function(actual, predicted){
 library(caret)
 library(plyr)
 library(lattice)
-knn2 <- knnreg(cs.training.data$Life.expectancy ~ ., data = cs.training.data, k=2)
+knn2 <- knnreg(cst.training$Life.expectancy ~ ., data = cst.training, k=2)
 
-train.knn = function(mr.rogers){
-  knnreg(cs.training.data$Life.expectancy ~., data = cs.training.data, k=mr.rogers)
+cst.train.knn = function(mr.rogers){
+  knnreg(cst.training$Life.expectancy ~., data = cst.training, k=mr.rogers)
 } 
 
-test.knn =  function(mr.rogers){
-  knnreg(cs.testing.data$Life.expectancy ~., data = cs.testing.data, k=mr.rogers)
+cst.test.knn =  function(mr.rogers){
+  knnreg(cst.testing.data$Life.expectancy ~., data = cst.testing.data, k=mr.rogers)
 } 
 
 k.to.try <- seq(1,50, by = 1)
 #create and store list knn predictions for k = 1 thru fiddy
-knn.list.train = lapply(k.to.try, train.knn)
-knn.list.test = lapply(k.to.try, test.knn)
+cst.knn.list.train = lapply(k.to.try, cst.train.knn)
+cst.knn.list.test = lapply(k.to.try, cst.test.knn)
 
 
 #create and store list of predictions
-knn.train.predictions <- lapply(knn.list.train, predict, cs.training.data)
-knn.test.predictions <- lapply(knn.list.test, predict, cs.testing.data)
+cst.knn.train.predictions <- lapply(cst.knn.list.train, predict, cst.training)
+cst.knn.test.predictions <- lapply(cst.knn.list.test, predict, cst.testing.data)
 ```
 
 Model Metrics RMSE
@@ -147,18 +147,18 @@ Model Metrics RMSE
 
 
 #create and store matrix of RMSE
-knn.rmse.train <- sapply(knn.train.predictions, calc.rmse, actual = cs.training.data$Life.expectancy)
-knn.rmse.test <- sapply(knn.test.predictions, calc.rmse, actual = cs.testing.data$Life.expectancy)
+cst.knn.rmse.train <- sapply(cst.knn.train.predictions, calc.rmse, actual = cst.training$Life.expectancy)
+cst.knn.rmse.test <- sapply(cst.knn.test.predictions, calc.rmse, actual = cst.testing.data$Life.expectancy)
 
 #RMSE plot of training vs predicted 
-plot(k.to.try, knn.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
-     ylim = range(c(knn.rmse.test, knn.rmse.train)),
+plot(k.to.try, cst.knn.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(cst.knn.rmse.test, cst.knn.rmse.train)),
      xlab = "K Neighbors",
     ylab = "RMSE Specificy units (years?",
     main = "Test and Training RMSE vs K")
-lines(k.to.try, knn.rmse.train, type = "b", col = "darkorange", pch = 23)
-index<-which(knn.rmse.test ==min(knn.rmse.test))
-points(index,knn.ase.test[index],col="red",pch=10)
+lines(k.to.try, cst.knn.rmse.train, type = "b", col = "darkorange", pch = 23)
+index<-which(cst.knn.rmse.test ==min(cst.knn.rmse.test))
+points(index,cst.knn.ase.test[index],col="red",pch=10)
 legend("topright", c("Train RMSE", "Test RMSE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
@@ -170,17 +170,17 @@ model Metrics ASE
 ```{r ASE}
 
 #create and store matrix of RMSE
-knn.ase.train <- sapply(knn.train.predictions, calc.ase, actual = cs.training.data$Life.expectancy)
-knn.ase.test <- sapply(knn.test.predictions, calc.ase, actual = cs.testing.data$Life.expectancy)
+cst.knn.ase.train <- sapply(cst.knn.train.predictions, calc.ase, actual = cst.training$Life.expectancy)
+cst.knn.ase.test <- sapply(cst.knn.test.predictions, calc.ase, actual = cst.testing.data$Life.expectancy)
 
-plot(k.to.try, knn.ase.test, type = "b", col = "dodgerblue", pch = 20, 
-     ylim = range(c(knn.ase.test, knn.rmse.train)),
+plot(k.to.try, cst.knn.ase.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(cst.knn.ase.test, cst.knn.rmse.train)),
      xlab = "K Neighbors",
     ylab = "ASE",
     main = "Test and Training ASE vs K")
-lines(k.to.try, knn.ase.train, type = "b", col = "darkorange", pch = 23)
-index<-which(knn.ase.test ==min(knn.ase.test))
-points(index,knn.ase.test[index],col="red",pch=10)
+lines(k.to.try, cst.knn.ase.train, type = "b", col = "darkorange", pch = 23)
+index<-which(cst.knn.ase.test ==min(cst.knn.ase.test))
+points(index,cst.knn.ase.test[index],col="red",pch=10)
 legend("topright", c("Train ASE", "Test ASE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
@@ -195,10 +195,10 @@ grid()
 #~~~~~~~~~~~~~~~~~~F you ggplot~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #knnValues <- c(1:50)
-#knn.rmse.train <-ldply(knn.train.predictions, calc.rmse, actual = cs.training.data$Life.expectancy)
-#knn.rmse.test <- ldply(knn.test.predictions, calc.rmse, actual = cs.testing.data$Life.expectancy)
+#cst.knn.rmse.train <-ldply(cst.knn.train.predictions, calc.rmse, actual = cst.training$Life.expectancy)
+#cst.knn.rmse.test <- ldply(cst.knn.test.predictions, calc.rmse, actual = cst.testing.data$Life.expectancy)
 
-#df.rmse = as.data.frame(cbind(knnValues, knn.rmse.train , knn.rmse.test))
+#df.rmse = as.data.frame(cbind(knnValues, cst.knn.rmse.train , cst.knn.rmse.test))
 
 #colnames(df.rmse) <- c('k_value','RMSE_train','RMSE_test')
 
@@ -227,21 +227,24 @@ Model Diagnostics
 
 # x = data frame of training set predictors
 # y = numeric vector of outcomes
-knnt3 <- knnreg(x= cs.training.data[,-1], y=cs.training.data[,1], k=38)
-
-#predict(knnt3, newdata = cs.testing.data[,-1])
-
-#data frame of predicted vs expected
-data.mod.knnt3 <- data.frame(predicted = predict(knnt3, newdata = cs.testing.data[-1]), observed= cs.testing.data[,1])
-
-knnt3.mse <- round(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2), digits = 3)
-knnt3.rmse <- round(sqrt(mean((data.mod.knnt3$predicted - data.mod.knnt3$observed)^2)), digits = 3)
+cst.knn.Model.AllVars.k38 <- knnreg(x= cst.training[,-1], y=cst.training[,1], k=38)
+cst.knn.model.AllVars.k1 <- knnreg(x= cst.training[,-1], y=cst.training[,1], k=1)
 
 
+#data frame of predicted vs expected k38
+cst.knn.AllVars.OvP.df.k38 <- data.frame(predicted = predict(cst.knn.Model.AllVars.k38, newdata = cst.testing.data[-1]), observed= cst.testing.data[,1])
+
+#dataframe of predicted cs expected k1
+cst.knn.AllVars.OvP.df.k1 <- data.frame(predicted = predict(cst.knn.model.AllVars.k1, newdata = cst.testing.data[-1]), observed= cst.testing.data[,1])
+
+cst.knn.AllVars.mse <- round(mean((cst.knn.AllVars.OvP.df.k38$predicted - cst.knn.AllVars.OvP.df.k38$observed)^2), digits = 3)
+cst.knn.AllVars.rmse <- round(sqrt(mean((cst.knn.AllVars.OvP.df.k38$predicted - cst.knn.AllVars.OvP.df.k38$observed)^2)), digits = 3)
 
 
 
-table(knnt3.mse, knnt3.rmse)
+
+
+table(cst.knn.AllVars.mse, cst.knn.AllVars.rmse)
 
 
 
@@ -249,27 +252,43 @@ table(knnt3.mse, knnt3.rmse)
 
 ```{r AIC & BIC knn}
 
-# to get 38 re run above code with K=38
-knn.38AIC <- AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
-knn.38BIC <- BIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
+#  K=38 AIC
+cst.knn.AllVars.k38.AIC <- AIC(cst.knn.AllVars.OvP.df.k38$observed, cst.knn.AllVars.OvP.df.k38$predicted, nrow(cst.knn.AllVars.OvP.df.k38), 21)
+# K=38 BIC
+cst.knn.AllVars.k38.BIC <- BIC(cst.knn.AllVars.OvP.df.k38$observed, cst.knn.AllVars.OvP.df.k38$predicted, nrow(cst.knn.AllVars.OvP.df.k38), 21)
 
-knn.1AIC <- AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
-knn.1BIC <- BIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
+# k =1 AIC
+cst.knn.AllVars.k1.AIC <- AIC(cst.knn.AllVars.OvP.df.k1$observed, cst.knn.AllVars.OvP.df.k1$predicted, nrow(cst.knn.AllVars.OvP.df.k1), 21)
+# k= 1 BIC
+cst.knn.AllVars.k1.BIC <- BIC(cst.knn.AllVars.OvP.df.k1$observed, cst.knn.AllVars.OvP.df.k1$predicted, nrow(cst.knn.AllVars.OvP.df.k1), 21)
 
-table(knn.38AIC, knn.38BIC, knn.1AIC,knn.1BIC)
+table(cst.knn.AllVars.k38.AIC, cst.knn.AllVars.k38.BIC, cst.knn.AllVars.k1.AIC,cst.knn.AllVars.k1.BIC)
 ```
 
-```{r knn predicted vs expected}
+```{r knn predicted vs observed}
 
-#they said it couldn't be done but I did it. plotted observed vs predicted with caret package. 
-ggplot(data.mod.knnt3,                                     
+# plotted observed vs predicted with caret package. 
+ggplot(cst.knn.AllVars.OvP.df.k1,                                     
        aes(x = predicted,
            y = observed)) +
   geom_point() +
   geom_abline(intercept = 0,
               slope = 1,
               color = "red",
-              size = 2)
+              size = 2) +
+  labs(title = "Expected Vs Predicted K=1 All Vars")
+
+
+# plot predicted vs observed K= 38 All Vars
+ggplot(cst.knn.AllVars.OvP.df.k38,                                     
+       aes(x = predicted,
+           y = observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              size = 2) +
+  labs(title = "Expected Vs Predicted K=38 All Vars")
 
 ```
 
@@ -295,12 +314,12 @@ library(rpart)
 library(rpart.plot)
 
 
+#CP Default is 0.001
+cst.dt.AllVars.test.model <- rpart(cst.training$Life.expectancy ~ ., data = cst.training, method = 'anova', cp = .001)
 
-dt.test.model <- rpart(cs.training.data$Life.expectancy ~ ., data = cs.training.data, method = 'anova', cp = .001)
+rpart.plot(cst.dt.AllVars.test.model)
 
-rpart.plot(dt.test.model)
-
-dt.model.pred = predict(dt.test.model, newdata = cs.testing.data[,-1])
+cst.dt.AllVars.model.predictions = predict(cst.dt.AllVars.test.model, newdata = cst.testing.data[,-1])
 ```
 
 ```{r tunning DT model}
@@ -308,25 +327,24 @@ dt.model.pred = predict(dt.test.model, newdata = cs.testing.data[,-1])
 # this means that the overall R-squared must increase by cp
 # luckily plotcp does this for us!
 
-plotcp(dt.test.model)
-printcp(dt.test.model)
+plotcp(cst.dt.AllVars.test.model)
+printcp(cst.dt.AllVars.test.model)
 
 #i like round 17 cp = .0029175
 # lets discuss why
 
-dt.model <-  rpart(cs.training.data$Life.expectancy ~ ., data = cs.training.data, method = 'anova', cp = 0.007)
+cst.dt.AllVars.model.cp0007 <-  rpart(cst.training$Life.expectancy ~ ., data = cst.training, method = 'anova', cp = 0.007)
 
-rpart.plot(dt.model)
+rpart.plot(cst.dt.AllVars.model.cp0007)
 
-dt.model.pred <- predict(dt.model, newdata = cs.testing.data[,-1], cp = 0.007)
+cst.dt.AllVars.model.predictions <- predict(cst.dt.AllVars.model.cp0007, newdata = cst.testing.data[,-1], cp = 0.007)
 
-dt.model.ASE = mean((cs.testing.data[,1] - predict(dt.model, cs.testing.data[,-1]))^2)
-dt.model.RMSE = sqrt(mean((cs.testing.data[,1] - predict(dt.model, cs.testing.data[,-1]))^2))
+cst.dt.AllVars.model.cp0007.ASE = mean((cst.testing.data[,1] - predict(cst.dt.AllVars.model.cp0007, cst.testing.data[,-1]))^2)
+cst.dt.AllVars.model.cp0007.RMSE = sqrt(mean((cst.testing.data[,1] - predict(cst.dt.AllVars.model.cp0007, cst.testing.data[,-1]))^2))
 
-data.mod.dt <- data.frame(predicted = predict(dt.model), observed= cs.training.data$Life.expectancy)
+cst.dt.AllVars.OvP.df.cp0007 <- data.frame(predicted = predict(cst.dt.AllVars.model.cp0007), observed= cst.training$Life.expectancy)
 
-summary(dt.model)
-
+summary(cst.dt.AllVars.model.cp0007)
 
 
 # Draw plot using ggplot2 package this time
@@ -334,12 +352,12 @@ summary(dt.model)
 
 ```{r AIC decesion tree}
 
-AIC(data.mod.dt$observed, data.mod.dt$predicted,nrow(data.mod.dt) ,19)
-BIC(data.mod.dt$observed, data.mod.dt$predicted,nrow(data.mod.dt) ,19)
+AIC(cst.dt.AllVars.OvP.df.cp0007$observed, cst.dt.AllVars.OvP.df.cp0007$predicted,nrow(cst.dt.AllVars.OvP.df.cp0007) ,19)
+BIC(cst.dt.AllVars.OvP.df.cp0007$observed, cst.dt.AllVars.OvP.df.cp0007$predicted,nrow(cst.dt.AllVars.OvP.df.cp0007) ,19)
 ```
 
 ```{r DT model Expected Vs predicted}
-ggplot(data.mod.dt,                                     
+ggplot(cst.dt.AllVars.OvP.df.cp0007,                                     
        aes(x = predicted,
            y = observed)) +
   geom_point() +
@@ -356,11 +374,11 @@ library(glmnet)
 
 
 
-x = model.matrix(cs.training.data$Life.expectancy ~ . ,cs.training.data)[,-1]
-y = cs.training.data$Life.expectancy
+x = model.matrix(cst.training$Life.expectancy ~ . ,cst.training)[,-1]
+y = cst.training$Life.expectancy
 
-xtest<-model.matrix(cs.testing.data$Life.expectancy~.,cs.testing.data)[,-1]
-ytest<-(cs.testing.data$Life.expectancy)
+xtest<-model.matrix(cst.testing.data$Life.expectancy~.,cst.testing.data)[,-1]
+ytest<-(cst.testing.data$Life.expectancy)
 
 grid=10^seq(10,-2, length =100)
 lasso.mod=glmnet(x,y,alpha=1, lambda =grid)
@@ -381,10 +399,10 @@ coef(lasso.mod,s=bestlambda)
 ```{r lasso with caret}
 library(dplyr)
 set.seed(1234)
-x <- model.matrix(Life.expectancy~.,cs.training.data)[,-1]
-y <- cs.training.data$Life.expectancy
-xtest <- model.matrix(Life.expectancy~.,cs.testing.data)[,-1]
-ytest <- cs.testing.data$Life.expectancy
+x <- model.matrix(Life.expectancy~.,cst.training)[,-1]
+y <- cst.training$Life.expectancy
+xtest <- model.matrix(Life.expectancy~.,cst.testing.data)[,-1]
+ytest <- cst.testing.data$Life.expectancy
 grid=10^seq(10,-2, length =100)
 lasso<-train(y= y,
                  x = x,
@@ -405,10 +423,10 @@ Ridge_RMSE = RMSE(predictions_ridge, ytest)
 Ridge_RMSE
 
 #Post resample - Lasso
-lasso.cs.testing.data<-postResample(pred = predictions_lasso, obs = cs.testing.data$Life.expectancy)
-lasso.cs.testing.data
-ridge.cs.testing.data<-postResample(pred = predictions_ridge, obs = cs.testing.data$Life.expectancy)
-ridge.cs.testing.data
+lasso.cst.testing.data<-postResample(pred = predictions_lasso, obs = cst.testing.data$Life.expectancy)
+lasso.cst.testing.data
+ridge.cst.testing.data<-postResample(pred = predictions_ridge, obs = cst.testing.data$Life.expectancy)
+ridge.cst.testing.data
 
 coef(lasso$finalMode,lasso$finalModel$lambdaOpt)
 varImp(lasso)
@@ -434,14 +452,14 @@ plot(ImpRidge)
   filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths
 ```{r}
 # function is not liking all these variables will use select to filter training set
-knn5var <- knnreg(cs.training.data$Life.expectancy ~ filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths, data = cs.training.data, k=2)
+cst.knn.5var.model <- knnreg(cst.training$Life.expectancy ~ filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths, data = cst.training, k=2)
 ```
 
 
 ```{r}
 
-cs.5var.training.data <- subset(cs.training.data, select = c(Life.expectancy,filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths))
-cs.5var.testing.data <- subset(cs.testing.data, select = c(Life.expectancy,filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths))
+cs.5var.training.data <- subset(cst.training, select = c(Life.expectancy,filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths))
+cs.5var.testing.data <- subset(cst.testing.data, select = c(Life.expectancy,filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths))
 
 ```
 
@@ -459,13 +477,13 @@ test5var.knn =  function(mr.rogers){
 
 k.to.try <- seq(1,50, by = 1)
 #create and store list knn predictions for k = 1 thru fiddy
-knn5var.list.train = lapply(k.to.try, train5var.knn)
-knn5var.list.test = lapply(k.to.try, test5var.knn)
+cst.knn.5var.model.list.train = lapply(k.to.try, train5var.knn)
+cst.knn.5var.model.list.test = lapply(k.to.try, test5var.knn)
 
 
 #create and store list of predictions
-knn5var.train.predictions <- lapply(knn5var.list.train, predict, cs.5var.training.data)
-knn5var.test.predictions <- lapply(knn5var.list.test, predict, cs.5var.testing.data)
+cst.knn.5var.model.train.predictions <- lapply(cst.knn.5var.model.list.train, predict, cs.5var.training.data)
+cst.knn.5var.model.test.predictions <- lapply(cst.knn.5var.model.list.test, predict, cs.5var.testing.data)
 ```
 
 Model Metrics RMSE
@@ -474,18 +492,18 @@ Model Metrics RMSE
 
 
 #create and store matrix of RMSE
-knn5var.rmse.train <- sapply(knn5var.train.predictions, calc.rmse, actual = cs.5var.training.data$Life.expectancy)
-knn5var.rmse.test <- sapply(knn5var.test.predictions, calc.rmse, actual = cs.5var.testing.data$Life.expectancy)
+cst.knn.5var.model.rmse.train <- sapply(cst.knn.5var.model.train.predictions, calc.rmse, actual = cs.5var.training.data$Life.expectancy)
+cst.knn.5var.model.rmse.test <- sapply(cst.knn.5var.model.test.predictions, calc.rmse, actual = cs.5var.testing.data$Life.expectancy)
 
 #RMSE plot of training vs predicted 
-plot(k.to.try, knn5var.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
-     ylim = range(c(knn.rmse.test, knn.rmse.train)),
+plot(k.to.try, cst.knn.5var.model.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(cst.knn.rmse.test, cst.knn.rmse.train)),
      xlab = "K Neighbors",
     ylab = "RMSE Specificy units (years?",
     main = "Test and Training RMSE vs K")
-lines(k.to.try, knn5var.rmse.train, type = "b", col = "darkorange", pch = 23)
-index<-which(knn5var.rmse.test ==min(knn.rmse.test))
-points(index,knn5var.ase.test[index],col="red",pch=10)
+lines(k.to.try, cst.knn.5var.model.rmse.train, type = "b", col = "darkorange", pch = 23)
+index<-which(cst.knn.5var.model.rmse.test ==min(cst.knn.rmse.test))
+points(index,cst.knn.5var.model.ase.test[index],col="red",pch=10)
 legend("topright", c("Train RMSE", "Test RMSE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
@@ -494,17 +512,17 @@ grid()
 ```
 
 ```{r}
-knn5var.ase.train <- sapply(knn5var.train.predictions, calc.ase, actual = cs.5var.training.data$Life.expectancy)
-knn5var.ase.test <- sapply(knn5var.test.predictions, calc.ase, actual = cs.5var.testing.data$Life.expectancy)
+cst.knn.5var.model.ase.train <- sapply(cst.knn.5var.model.train.predictions, calc.ase, actual = cs.5var.training.data$Life.expectancy)
+cst.knn.5var.model.ase.test <- sapply(cst.knn.5var.model.test.predictions, calc.ase, actual = cs.5var.testing.data$Life.expectancy)
 
-plot(k.to.try, knn5var.ase.test, type = "b", col = "dodgerblue", pch = 20, 
-     ylim = range(c(knn.ase.test, knn5var.rmse.train)),
+plot(k.to.try, cst.knn.5var.model.ase.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(cst.knn.ase.test, cst.knn.5var.model.rmse.train)),
      xlab = "K Neighbors",
     ylab = "ASE",
     main = "Test and Training ASE vs K")
-lines(k.to.try, knn5var.ase.train, type = "b", col = "darkorange", pch = 23)
-index<-which(knn5var.ase.test ==min(knn5var.ase.test))
-points(index,knn5var.ase.test[index],col="red",pch=10)
+lines(k.to.try, cst.knn.5var.model.ase.train, type = "b", col = "darkorange", pch = 23)
+index<-which(cst.knn.5var.model.ase.test ==min(cst.knn.5var.model.ase.test))
+points(index,cst.knn.5var.model.ase.test[index],col="red",pch=10)
 legend("topright", c("Train ASE", "Test ASE"), 
        col = c("darkorange", "dodgerblue"),
        lty = c(1), 
@@ -513,24 +531,22 @@ grid()
 ```
 
 ```{r predicted vs expected}
-knnt5var3 <- knnreg(x= cs.5var.training.data[,-1], y=cs.5var.training.data[,1], k=1)
+knn.5var.k1 <- knnreg(x= cs.5var.training.data[,-1], y=cs.5var.training.data[,1], k=1)
 
 #predict(knnt3, newdata = cs.5var.testing.data[,-1])
 
 #data frame of predicted vs expected
-data.mod5var.knnt3 <- data.frame(predicted = predict(knnt5var3, newdata = cs.5var.testing.data[-1]), observed= cs.5var.testing.data[,1])
+cst.knn.5Vars.OvP.df.k1 <- data.frame(predicted = predict(knn.5var.k1, newdata = cs.5var.testing.data[-1]), observed= cs.5var.testing.data[,1])
 
-knnt5var3.mse <- round(mean((data.mod5var.knnt3$predicted - data.mod5var.knnt3$observed)^2), digits = 3)
-knnt5var3.rmse <- round(sqrt(mean((data.mod5var.knnt3$predicted - data.mod5var.knnt3$observed)^2)), digits = 3)
-
-
+knn.5var.k1.mse <- round(mean((cst.knn.5Vars.OvP.df.k1$predicted - cst.knn.5Vars.OvP.df.k1$observed)^2), digits = 3)
+knn.5var.k1.rmse <- round(sqrt(mean((cst.knn.5Vars.OvP.df.k1$predicted - cst.knn.5Vars.OvP.df.k1$observed)^2)), digits = 3)
 
 
 
-table(knnt5var3.mse, knnt5var3.rmse)
+table(knn.5var.k1.mse, knn.5var.k1.rmse)
 
 #they said it couldn't be done but I did it. plotted observed vs predicted with caret package. 
-ggplot(data.mod5var.knnt3,                                     
+ggplot(cst.knn.5Vars.OvP.df.k1,                                     
        aes(x = predicted,
            y = observed)) +
   geom_point() +
@@ -543,9 +559,9 @@ ggplot(data.mod5var.knnt3,
 
 ```{R compare knn model metrics}
 
-knn5var.AIC <- AIC(data.mod5var.knnt3$observed, data.mod5var.knnt3$predicted, nrow(data.mod5var.knnt3), 5)
+cst.knn.5var.model.AIC <- AIC(cst.knn.5Vars.OvP.df.k1$observed, cst.knn.5Vars.OvP.df.k1$predicted, nrow(cst.knn.5Vars.OvP.df.k1), 5)
 
-knn5var.BIC <- BIC(data.mod5var.knnt3$observed, data.mod5var.knnt3$predicted, nrow(data.mod5var.knnt3), 5)
+cst.knn.5var.model.BIC <- BIC(cst.knn.5Vars.OvP.df.k1$observed, cst.knn.5Vars.OvP.df.k1$predicted, nrow(cst.knn.5Vars.OvP.df.k1), 5)
 
-table(knn.38AIC, knn.38BIC, knn.1AIC, knn.1BIC, knn5var.AIC, knn5var.BIC)
+table(cst.knn.AllVars.k38.AIC, cst.knn.AllVars.k38.BIC, cst.knn.AllVars.k1.AIC, cst.knn.AllVars.k1.BIC, cst.knn.5var.model.AIC, cst.knn.5var.model.BIC)
 ```
