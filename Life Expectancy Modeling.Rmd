@@ -12,19 +12,23 @@ theme_update(axis.title = element_text()) #the default for fivethirtyeight is to
 theme_update(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r}
+```{r import data}
 #Import Clean, Scaled, and Transformed CSV 
+# cst = cleaned scaled transformed
 cst.df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/clean_scaled.csv", header = TRUE, fileEncoding="UTF-8-BOM")
 
 cst.df$Developed = as.factor(cst.df$Developed) 
+
 #Import cleaned scaled 
+
+
 #import cleaned
 
 #Must omit values before running model
 cst.df <- na.omit(cst.df)
 ```
 
-```{r}
+```{r train test split}
 #Train / Test split by Year
 cst.training <- cst.df[c(cst.df$Year <= 2010),]
 cst.test <- cst.df[c(cst.df$Year > 2010),]
@@ -35,5 +39,67 @@ dim(cst.test)
 
 cst.training <- subset(cst.training, select = -c(Country,Year))
 cst.test <- subset(cst.test, select = -c(Country, Year))
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                 Model Metrics
+                               AIC BIC RMSE MSE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+```{r AIC BIC RMSE, MSE functions}
+AIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
+
+BIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  BIC = n * log(sse/n) + log(n) * (k+1)
+  print(return(BIC))
+}
+
+calc.rmse <- function(actual, predicted){
+  sqrt(mean(actual - predicted)^2)
+}
+
+#create function for MSE / ASE
+calc.ase <- function(actual, predicted){
+  (mean(actual - predicted)^2)
+}
+
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                             Step 3.1: Experimental Model Engine
+                                       Knn Regression
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+```{r knn regression with caret}
+library(caret)
+library(plyr)
+library(lattice)
+
+knn2 <- knnreg(cst.training$Life.expectancy ~ ., data = cst.training, k=2)
+
+train.knn = function(mr.rogers){
+  knnreg(cst.training$Life.expectancy ~., data = cst.training, k=mr.rogers)
+} 
+
+test.knn =  function(mr.rogers){
+  knnreg(cs.test$Life.expectancy ~., data = cs.testing.data, k=mr.rogers)
+} 
+
+k.to.try <- seq(1,50, by = 1)
+#create and store list knn predictions for k = 1 thru fiddy
+knn.list.train = lapply(k.to.try, train.knn)
+knn.list.test = lapply(k.to.try, test.knn)
+
+
+#create and store list of predictions
+knn.train.predictions <- lapply(knn.list.train, predict, cst.training)
+knn.test.predictions <- lapply(knn.list.test, predict, cs.testing.data)
 ```
 

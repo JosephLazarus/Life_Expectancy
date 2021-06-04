@@ -227,7 +227,7 @@ Model Diagnostics
 
 # x = data frame of training set predictors
 # y = numeric vector of outcomes
-knnt3 <- knnreg(x= cs.training.data[,-1], y=cs.training.data[,1], k=1)
+knnt3 <- knnreg(x= cs.training.data[,-1], y=cs.training.data[,1], k=38)
 
 #predict(knnt3, newdata = cs.testing.data[,-1])
 
@@ -249,9 +249,8 @@ table(knnt3.mse, knnt3.rmse)
 
 ```{r AIC & BIC knn}
 
-
+# to get 38 re run above code with K=38
 knn.38AIC <- AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
-
 knn.38BIC <- BIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
 
 knn.1AIC <- AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
@@ -540,4 +539,13 @@ ggplot(data.mod5var.knnt3,
               color = "red",
               size = 2)
 
+```
+
+```{R compare knn model metrics}
+
+knn5var.AIC <- AIC(data.mod5var.knnt3$observed, data.mod5var.knnt3$predicted, nrow(data.mod5var.knnt3), 5)
+
+knn5var.BIC <- BIC(data.mod5var.knnt3$observed, data.mod5var.knnt3$predicted, nrow(data.mod5var.knnt3), 5)
+
+table(knn.38AIC, knn.38BIC, knn.1AIC, knn.1BIC, knn5var.AIC, knn5var.BIC)
 ```
