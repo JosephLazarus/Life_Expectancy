@@ -1,0 +1,8 @@
+---
+title: "Life Expectancy Modeling"
+author: "Satvik, Joe, and Rick"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
