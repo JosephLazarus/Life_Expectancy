@@ -1,0 +1,83 @@
+---
+title: "Life Expectancy Modeling"
+author: "Satvik"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+```{r}
+library(ggthemes)
+theme_set(theme_fivethirtyeight())
+theme_update(axis.title = element_text()) #the default for fivethirtyeight is to not show axis labels, this removes that default so we can choose to specify and display axis titles
+theme_update(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+#Import Clean, Scaled, and Transformed CSV 
+cst.df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/clean_scaled.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+
+cst.df$Developed = as.factor(cst.df$Developed) 
+#Import cleaned scaled 
+#import cleaned
+
+#Must omit values before running model
+cst.df <- na.omit(cst.df)
+```
+
+```{r}
+#Train / Test split by Year
+cst.training <- cst.df[c(cst.df$Year <= 2010),]
+cst.test <- cst.df[c(cst.df$Year > 2010),]
+
+dim(cst.df)
+dim(cst.training)
+dim(cst.test)
+
+cst.training <- subset(cst.training, select = -c(Country,Year))
+cst.test <- subset(cst.test, select = -c(Country, Year))
+```
+
+
+```{r}
+library(glmnet)
+# fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
+# fitControl<-trainControl(method="none")
+#To get model names for `method`
+names(getModelInfo())
+#GLM Net Model (selecting tuning parameters alpha and lambda via 10 FOLD CV)
+# set.seed(1234)
+glmnet.fit<-train(Life.expectancy~.,
+               data=cst.training,
+               method="glmnet",
+               na.action = na.omit
+               )
+#glmnet.fit results
+glmnet.fit
+#Model Coefficients
+coef(glmnet.fit$finalModel,glmnet.fit$finalModel$lambdaOpt)
+```
+
+```{r}
+#Creating using the test set. Resulting in the RMSE of the validation set
+glmnet.pred<-predict(glmnet.fit, cst.test)
+RMSE(glmnet.pred, cst.test$Life.expectancy)
+
+#RMSE
+glmnet.RMSE<-sqrt(mean((cst.test$Life.expectancy-glmnet.pred)^2))
+glmnet.RMSE
+plot(glmnet.pred,cst.test$Life.expectancy,ylim=c(40,100),xlim=c(40,100))
+lines(0:100,0:100)
+
+
+#Here is a more natural tool to compute RMSE as well as some additional metrics
+glmnet.validate<-postResample(pred = glmnet.pred, obs = cst.test$Life.expectancy)
+glmnet.validate
+
+#Ranking of the predictors
+varImp(glmnet.fit)
+plot(varImp(glmnet.fit))
+```
+
+
+
+
