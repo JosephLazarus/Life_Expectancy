@@ -89,7 +89,7 @@ plot(varImp(cst.glmnet.fit))
 
 ```
 
-
+Reference to Resource Used: https://www.datacareer.ch/blog/ridge-and-lasso-in-r/
 Variable Selection - Lasso
 Using this model our RMSE is on the test set is 2.442969
 ```{r}
@@ -130,6 +130,7 @@ plot(varImp(cst.Lasso))
 
 ```
 
+Reference to Resource Used: https://www.datacareer.ch/blog/ridge-and-lasso-in-r/
 Variable Selection with Ridge
 Using this model our RMSE is on the test set is 2.442969
 ```{r}
@@ -166,7 +167,6 @@ Top 5 in order of importance features selected by the Elastic Net Model
 
 Top 5 in order of importance features selected by Lasso
 (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, log.HIV.AIDS, log.EstGDPpercapita, Developed)
-
 
 Top 5 in order of importance features selected by of Ridge
  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, log.under.five.deaths,log.CorrectedExpenditure)
@@ -213,44 +213,29 @@ RIDGE.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.
 
 RIDGE.preds = predict(RIDGE.fit, newdata = cst.test)
 RMSE(RIDGE.preds,cst.test$Life.expectancy)
-
-
-
 ```
 
+
 ```{r}
-#TTESSSSTTTTTTT
-#ADDING SEVEN VARIABLES LOWERS TEST RMSE TO 2.461283 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths)
-
-#ADDING EIGHT VARIABLES LOWERS TEST RMSE TO 2.442231 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol)
-
-#ADDING NINE VARIABLES RAISES TEST RMSE TO 2.453327 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol + Schooling)
-
+# Using Top 5 in order of importance features selected by the Elastic Net Model
 ELASTICNET.fitTEST1 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed, data = cst.training)
 
+# Using Top 7 VARIABLES LOWERS TEST RMSE TO 2.461283 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths)
 
 ELASTICNET.fitTEST2 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths, data = cst.training)
-
+#Using Top 8 VARIABLES LOWERS TEST RMSE TO 2.442231 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol)
 
 ELASTICNET.fitTEST3 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol, data = cst.training)
 
+#Using Top 9 VARIABLES RAISES TEST RMSE TO 2.453327 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol + Schooling)
 
 ELASTICNET.fitTEST4 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol + Schooling, data = cst.training)
-
 model_list = list(ELASTICNET.fitTEST1, ELASTICNET.fitTEST2, ELASTICNET.fitTEST3, ELASTICNET.fitTEST4)
+```
 
-
-
-ELASTICNET.predsTEST = predict(ELASTICNET.fitTEST, newdata = cst.test)
-RMSE(ELASTICNET.predsTEST,cst.test$Life.expectancy)
-
-
-
-get_rmse(ELASTICNET.predsTEST)
-
-
+Reference to Resource: https://daviddalpiaz.github.io/r4sl/regression-for-statistical-learning.html
+```{r}
 model_list = list(ELASTICNET.fitTEST1, ELASTICNET.fitTEST2, ELASTICNET.fitTEST3, ELASTICNET.fitTEST4)
-
 
 rmse = function(actual, predicted) {
   sqrt(mean((actual - predicted) ^ 2))
@@ -269,7 +254,7 @@ train_rmse = sapply(model_list, get_rmse, data = cst.training, response = "Life.
 test_rmse = sapply(model_list, get_rmse, data = cst.test, response = "Life.expectancy")
 model_complexity = sapply(model_list, get_complexity)
 
-
+#Train/Test RMSE PLOTS
 plot(model_complexity, train_rmse, type = "b", 
      ylim = c(min(c(train_rmse, test_rmse)) - 0.02, 
               max(c(train_rmse, test_rmse)) + 0.02), 
@@ -277,9 +262,12 @@ plot(model_complexity, train_rmse, type = "b",
      xlab = "Model Size",
      ylab = "RMSE")
 lines(model_complexity, test_rmse, type = "b", col = "darkorange")
-
-
 ```
+
+
+
+
+
 
 ```{r}
 AIC <- function(y, y_pred, n, k){
