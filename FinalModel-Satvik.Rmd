@@ -12,19 +12,23 @@ theme_update(axis.title = element_text()) #the default for fivethirtyeight is to
 theme_update(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r}
+```{r import data}
 #Import Clean, Scaled, and Transformed CSV 
-cst.df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/clean_scaled.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+# cst = cleaned scaled transformed
+cst.df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/transformed.csv", header = TRUE, fileEncoding="UTF-8-BOM")
 
 cst.df$Developed = as.factor(cst.df$Developed) 
+
 #Import cleaned scaled 
+
+
 #import cleaned
 
 #Must omit values before running model
 cst.df <- na.omit(cst.df)
 ```
 
-```{r}
+```{r train test split}
 #Train / Test split by Year
 cst.training <- cst.df[c(cst.df$Year <= 2010),]
 cst.test <- cst.df[c(cst.df$Year > 2010),]
@@ -37,9 +41,13 @@ cst.training <- subset(cst.training, select = -c(Country,Year))
 cst.test <- subset(cst.test, select = -c(Country, Year))
 ```
 
-
+Variable Selection
+Elastic Net Model with 10 Fold Cross Validation
+Using this model our RMSE is on the test set is 2.43688
 ```{r}
+library(caret)
 library(glmnet)
+library(dplyr)
 fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
 # fitControl<-trainControl(method="none")
 
@@ -76,9 +84,16 @@ cst.glmnet.resamp
 #Ranking of the predictors
 varImp(cst.glmnet.fit)
 plot(varImp(cst.glmnet.fit))
+# Top 5 in order of importance features selected by the Elastic Net Model
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, log.EstGDPpercapita, Developed)
+
 ```
 
+
+Variable Selection - Lasso
+Using this model our RMSE is on the test set is 2.442969
 ```{r}
+
 X <- model.matrix(Life.expectancy~.,cst.training)[,-1]
 
 y <- cst.training$Life.expectancy
@@ -96,78 +111,233 @@ cst.Lasso<-train(y = y,
              na.action = na.omit
              )
 
+cst.Lasso.pred <- cst.Lasso %>% predict(xTest)
+
+cst.Lasso_RMSE = RMSE(cst.Lasso.pred, yTest)
+cst.Lasso_RMSE
+
+Lasso.test <-postResample(pred = cst.Lasso.pred, obs = cst.test$Life.expectancy)
+Lasso.test
+
+coef(cst.Lasso$finalMode,cst.Lasso$finalModel$lambdaOpt)
+
+varImp(cst.Lasso)
+
+plot(varImp(cst.Lasso))
+# 
+# Top 5 in order of importance features selected by of Lasso
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, log.HIV.AIDS, log.EstGDPpercapita, Developed)
+
+```
+
+Variable Selection with Ridge
+Using this model our RMSE is on the test set is 2.442969
+```{r}
+#Recheck RMSE for Ridge and Lasso. getting the same values.
 cst.Ridge <-train(y = y, 
               x = X,
               method = 'glmnet',
               tuneGrid = expand.grid(alpha = 0, lambda = lambdaGrid),
               na.action = na.omit
               )
-
-cst.Lasso.pred <- cst.Lasso %>% predict(xTest)
 cst.Ridge.pred <- cst.Lasso %>% predict(xTest)
-
-cst.Lasso_RMSE = RMSE(cst.Lasso.pred, yTest)
-cst.Lasso_RMSE
 
 cst.Ridge_RMSE = RMSE(cst.Ridge.pred, yTest)
 cst.Ridge_RMSE
 
-#Post resample for Lasso Model
-Lasso.test <-postResample(pred = cst.Lasso.pred, obs = cst.test$Life.expectancy)
-Lasso.test
-
 Ridge.test<-postResample(pred = cst.Ridge.pred, obs = cst.test$Life.expectancy)
 Ridge.test
-
-coef(cst.Lasso$finalMode,cst.Lasso$finalModel$lambdaOpt)
-
-varImp(cst.Lasso)
-plot(varImp(cst.Lasso))
 
 coef(cst.Ridge$finalModel,cst.Ridge$finalModel$lambdaOpt)
 
 varImp(cst.Ridge)
 plot(varImp(cst.Ridge))
+
+# Top 5 in order of importance features selected by of Ridge
+#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, log.under.five.deaths,log.CorrectedExpenditure)
+# Selected the same variables as Ridge
+
+
+
+```
+
+Top 5 in order of importance features selected by the Elastic Net Model
+(filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, log.EstGDPpercapita, Developed)
+
+Top 5 in order of importance features selected by Lasso
+(filtered.Income.composition.of.resources,log.adj.Adult.Mortality, log.HIV.AIDS, log.EstGDPpercapita, Developed)
+
+
+Top 5 in order of importance features selected by of Ridge
+ (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, log.under.five.deaths,log.CorrectedExpenditure)
+
+Using ELASTIC NET (10 Fold Cross Validation), the RMSE is on the test set is 2.43688
+Using LASSO, the RMSE is on the test set is 2.442969
+Using RIDGE, the RMSE is on the test set is 2.442969
+
+Lasso and Elastic Net Model chose the same variables.
+
+Moving forward from variable selection. Now we will check our models using LM with variables selected by Lasso, Elastic Net, and Ridge.
+
+
+```{r}
+# Both ELASTIC NET and LASSO selected the same variables
+ELASTICNET.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed, data = cst.df)
+
+summary(ELASTICNET.fit)
+
+LASSO.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed, data = cst.df)
+
+summary(LASSO.fit)
+
+RIDGE.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.under.five.deaths + log.CorrectedExpenditure, data = cst.df)
+
+summary(RIDGE.fit)
+
 ```
 
 
 ```{r}
+#Now we will use the training data and fit the model to the test data
+ELASTICNET.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed, data = cst.training)
 
-fitControlForward<-trainControl(method="cv")
-cst.f.fit<-train(x=X,
-             y=y,
-             method="leapForward",
-             trControl=fitControlForward,
-             tuneGrid = expand.grid(nvmax = seq(1, 12, 1))
-             )
-cst.f.fit
-plot(cst.f.fit)
-varImp(cst.f.fit)
-coef(f.fit$finalModel,f.fit$finalModel$nrbar)
+ELASTICNET.preds = predict(ELASTICNET.fit, newdata = cst.test)
+RMSE(ELASTICNET.preds,cst.test$Life.expectancy)
+
+LASSO.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed, data = cst.training)
+
+LASSO.preds = predict(LASSO.fit, newdata = cst.test)
+RMSE(LASSO.preds,cst.test$Life.expectancy)
+
+RIDGE.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.under.five.deaths + log.CorrectedExpenditure, data = cst.training)
+
+RIDGE.preds = predict(RIDGE.fit, newdata = cst.test)
+RMSE(RIDGE.preds,cst.test$Life.expectancy)
+
+
+
 ```
 
+```{r}
+#TTESSSSTTTTTTT
+#ADDING SEVEN VARIABLES LOWERS TEST RMSE TO 2.461283 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths)
+
+#ADDING EIGHT VARIABLES LOWERS TEST RMSE TO 2.442231 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol)
+
+#ADDING NINE VARIABLES RAISES TEST RMSE TO 2.453327 (filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol + Schooling)
+
+ELASTICNET.fitTEST1 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed, data = cst.training)
+
+
+ELASTICNET.fitTEST2 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths, data = cst.training)
+
+
+ELASTICNET.fitTEST3 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol, data = cst.training)
+
+
+ELASTICNET.fitTEST4 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol + Schooling, data = cst.training)
+
+model_list = list(ELASTICNET.fitTEST1, ELASTICNET.fitTEST2, ELASTICNET.fitTEST3, ELASTICNET.fitTEST4)
+
+
+
+ELASTICNET.predsTEST = predict(ELASTICNET.fitTEST, newdata = cst.test)
+RMSE(ELASTICNET.predsTEST,cst.test$Life.expectancy)
+
+
+
+get_rmse(ELASTICNET.predsTEST)
+
+
+model_list = list(ELASTICNET.fitTEST1, ELASTICNET.fitTEST2, ELASTICNET.fitTEST3, ELASTICNET.fitTEST4)
+
+
+rmse = function(actual, predicted) {
+  sqrt(mean((actual - predicted) ^ 2))
+}
+
+get_rmse = function(model, data, response) {
+  rmse(actual = data[, response], 
+       predicted = predict(model, data))
+}
+
+get_complexity = function(model) {
+  length(coef(model)) - 1
+}
+
+train_rmse = sapply(model_list, get_rmse, data = cst.training, response = "Life.expectancy")
+test_rmse = sapply(model_list, get_rmse, data = cst.test, response = "Life.expectancy")
+model_complexity = sapply(model_list, get_complexity)
+
+
+plot(model_complexity, train_rmse, type = "b", 
+     ylim = c(min(c(train_rmse, test_rmse)) - 0.02, 
+              max(c(train_rmse, test_rmse)) + 0.02), 
+     col = "dodgerblue", 
+     xlab = "Model Size",
+     ylab = "RMSE")
+lines(model_complexity, test_rmse, type = "b", col = "darkorange")
+
+
+```
 
 ```{r}
-#21 nu
-# n is number of obs
-# k is number of parameters
-#
-
 AIC <- function(y, y_pred, n, k){
   resids = y - y_pred
   sse = sum(resids^2)
   AIC =  n * log(sse/n) + 2*(k + 1)
   print(return(AIC))
 }
-knn.38AIC <- AIC(data.mod.knnt3$observed, data.mod.knnt3$predicted, nrow(data.mod.knnt3), 21)
+
+BIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  BIC = n * log(sse/n) + log(n) * (k+1)
+  print(return(BIC))
+}
+
+calc.rmse <- function(actual, predicted){
+  sqrt(mean(actual - predicted)^2)
+}
+
+#create function for MSE / ASE
+calc.ase <- function(actual, predicted){
+  (mean(actual - predicted)^2)
+}
+
+```
+
+
+
+```{r}
+ELASTICNET.fitTEST3 = lm(Life.expectancy ~ filtered.Income.composition.of.resources + log.adj.Adult.Mortality + log.HIV.AIDS + log.EstGDPpercapita + Developed + log.CorrectedExpenditure + log.under.five.deaths + Alcohol, data = cst.training)
+
+# (1) To get AIC, input model into function
+df.funct <- function(model) {
+  data.frame(predicted = predict(model, newdata = cst.test[-1]), observed = cst.test[,1])
+}
+#(2) use above call to get the AIC
+get.aic <- function(dataframe){
+  AIC(dataframe$observed, dataframe$predicted, nrow(dataframe), 600)
+}
+#(3) Get AIC for that model
+theDataFrame = df.funct(ELASTICNET.fitTEST2)
+modelAIC2 = get.aic(theDataFrame)
+modelAIC2
+theDataFrame = df.funct(ELASTICNET.fitTEST3)
+modelAIC3 = get.aic(theDataFrame)
+modelAIC3
+theDataFrame = df.funct(ELASTICNET.fitTEST4)
+modelAIC4 = get.aic(theDataFrame)
+modelAIC4
 ```
 
 
 ```{r}
 
-cst.lm.df.5var <- data.frame(predicted = predict(knnt3, newdata = cs.testing.data[-1]), observed= cs.testing.data[,1])
-
 ```
+
+
 
 
 

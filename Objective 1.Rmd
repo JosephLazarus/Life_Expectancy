@@ -134,7 +134,7 @@ testRMSE_LASSO
 
 coef(lasso.mod,s=bestlambda)
 ```
-
+resource for Lasso (https://www.datacareer.ch/blog/ridge-and-lasso-in-r/)
 Lasso with caret
 ```{r}
 set.seed(1234)
@@ -171,6 +171,15 @@ coef(lasso$finalMode,lasso$finalModel$lambdaOpt)
 varImp(lasso)
 coef(ridge$finalModel,ridge$finalModel$lambdaOpt)
 varImp(ridge)
+```
+
+```{r}
+AIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
 ```
 
 
