@@ -52,12 +52,12 @@ sample_size = round(nrow(df)*.70) # setting what is 70%
 index <- sample(seq_len(nrow(df)), size = sample_size)
 
 cst.training <- df[index, ]
-cst.testing.data <- df[-index, ]
+cst.test <- df[-index, ]
 
 #sanity check the split
 dim(df)
 dim(cst.training)
-dim(cst.testing.data)
+dim(cst.test)
 
 
 ```
@@ -69,17 +69,25 @@ dim(cst.testing.data)
 
 ```{r Data split}
 cst.training <- df[c(df$Year <= 2010),]
-cst.testing.data <- df[c(df$Year > 2010),]
+cst.test <- df[c(df$Year > 2010),]
 
 dim(df)
 dim(cst.training)
-dim(cst.testing.data)
+dim(cst.test)
 
 cst.training <- subset(cst.training, select = -c(Country,Year))
-cst.testing.data <- subset(cst.testing.data, select = -c(Country, Year))
+cst.test <- subset(cst.test, select = -c(Country, Year))
 ```
 
+                           STOP!!!!!!!!  IMPORTANT
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                                   Go to 
+                                 line 394 
+                 KNNreg and Decesion tree models performed
+                 on data after variable selection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                                  Model Metrics
                                AIC BIC RMSE MSE
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,7 +135,7 @@ cst.train.knn = function(mr.rogers){
 } 
 
 cst.test.knn =  function(mr.rogers){
-  knnreg(cst.testing.data$Life.expectancy ~., data = cst.testing.data, k=mr.rogers)
+  knnreg(cst.test$Life.expectancy ~., data = cst.test, k=mr.rogers)
 } 
 
 k.to.try <- seq(1,50, by = 1)
@@ -138,7 +146,7 @@ cst.knn.list.test = lapply(k.to.try, cst.test.knn)
 
 #create and store list of predictions
 cst.knn.train.predictions <- lapply(cst.knn.list.train, predict, cst.training)
-cst.knn.test.predictions <- lapply(cst.knn.list.test, predict, cst.testing.data)
+cst.knn.test.predictions <- lapply(cst.knn.list.test, predict, cst.test)
 ```
 
 Model Metrics RMSE
@@ -148,7 +156,7 @@ Model Metrics RMSE
 
 #create and store matrix of RMSE
 cst.knn.rmse.train <- sapply(cst.knn.train.predictions, calc.rmse, actual = cst.training$Life.expectancy)
-cst.knn.rmse.test <- sapply(cst.knn.test.predictions, calc.rmse, actual = cst.testing.data$Life.expectancy)
+cst.knn.rmse.test <- sapply(cst.knn.test.predictions, calc.rmse, actual = cst.test$Life.expectancy)
 
 #RMSE plot of training vs predicted 
 plot(k.to.try, cst.knn.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
@@ -171,7 +179,7 @@ model Metrics ASE
 
 #create and store matrix of RMSE
 cst.knn.ase.train <- sapply(cst.knn.train.predictions, calc.ase, actual = cst.training$Life.expectancy)
-cst.knn.ase.test <- sapply(cst.knn.test.predictions, calc.ase, actual = cst.testing.data$Life.expectancy)
+cst.knn.ase.test <- sapply(cst.knn.test.predictions, calc.ase, actual = cst.test$Life.expectancy)
 
 plot(k.to.try, cst.knn.ase.test, type = "b", col = "dodgerblue", pch = 20, 
      ylim = range(c(cst.knn.ase.test, cst.knn.rmse.train)),
@@ -196,7 +204,7 @@ grid()
 
 #knnValues <- c(1:50)
 #cst.knn.rmse.train <-ldply(cst.knn.train.predictions, calc.rmse, actual = cst.training$Life.expectancy)
-#cst.knn.rmse.test <- ldply(cst.knn.test.predictions, calc.rmse, actual = cst.testing.data$Life.expectancy)
+#cst.knn.rmse.test <- ldply(cst.knn.test.predictions, calc.rmse, actual = cst.test$Life.expectancy)
 
 #df.rmse = as.data.frame(cbind(knnValues, cst.knn.rmse.train , cst.knn.rmse.test))
 
@@ -232,10 +240,10 @@ cst.knn.model.AllVars.k1 <- knnreg(x= cst.training[,-1], y=cst.training[,1], k=1
 
 
 #data frame of predicted vs expected k38
-cst.knn.AllVars.OvP.df.k38 <- data.frame(predicted = predict(cst.knn.Model.AllVars.k38, newdata = cst.testing.data[-1]), observed= cst.testing.data[,1])
+cst.knn.AllVars.OvP.df.k38 <- data.frame(predicted = predict(cst.knn.Model.AllVars.k38, newdata = cst.test[-1]), observed= cst.test[,1])
 
 #dataframe of predicted cs expected k1
-cst.knn.AllVars.OvP.df.k1 <- data.frame(predicted = predict(cst.knn.model.AllVars.k1, newdata = cst.testing.data[-1]), observed= cst.testing.data[,1])
+cst.knn.AllVars.OvP.df.k1 <- data.frame(predicted = predict(cst.knn.model.AllVars.k1, newdata = cst.test[-1]), observed= cst.test[,1])
 
 cst.knn.AllVars.mse <- round(mean((cst.knn.AllVars.OvP.df.k38$predicted - cst.knn.AllVars.OvP.df.k38$observed)^2), digits = 3)
 cst.knn.AllVars.rmse <- round(sqrt(mean((cst.knn.AllVars.OvP.df.k38$predicted - cst.knn.AllVars.OvP.df.k38$observed)^2)), digits = 3)
@@ -243,10 +251,9 @@ cst.knn.AllVars.rmse <- round(sqrt(mean((cst.knn.AllVars.OvP.df.k38$predicted - 
 
 
 
-
 table(cst.knn.AllVars.mse, cst.knn.AllVars.rmse)
 
-
+plot(cst.test$Life.expectancy, predict(cst.knn.model.AllVars.k1, cst.test[,-1]))
 
 ```
 
@@ -319,7 +326,7 @@ cst.dt.AllVars.test.model <- rpart(cst.training$Life.expectancy ~ ., data = cst.
 
 rpart.plot(cst.dt.AllVars.test.model)
 
-cst.dt.AllVars.model.predictions = predict(cst.dt.AllVars.test.model, newdata = cst.testing.data[,-1])
+cst.dt.AllVars.model.predictions = predict(cst.dt.AllVars.test.model, newdata = cst.test[,-1])
 ```
 
 ```{r tunning DT model}
@@ -337,12 +344,18 @@ cst.dt.AllVars.model.cp0007 <-  rpart(cst.training$Life.expectancy ~ ., data = c
 
 rpart.plot(cst.dt.AllVars.model.cp0007)
 
-cst.dt.AllVars.model.predictions <- predict(cst.dt.AllVars.model.cp0007, newdata = cst.testing.data[,-1], cp = 0.007)
+cst.dt.AllVars.model.predictions <- predict(cst.dt.AllVars.model.cp0007, newdata = cst.test[,-1], cp = 0.007)
 
-cst.dt.AllVars.model.cp0007.ASE = mean((cst.testing.data[,1] - predict(cst.dt.AllVars.model.cp0007, cst.testing.data[,-1]))^2)
-cst.dt.AllVars.model.cp0007.RMSE = sqrt(mean((cst.testing.data[,1] - predict(cst.dt.AllVars.model.cp0007, cst.testing.data[,-1]))^2))
+cst.dt.AllVars.model.cp0007.ASE = mean((cst.test[,1] - predict(cst.dt.AllVars.model.cp0007, cst.test[,-1]))^2)
+cst.dt.AllVars.model.cp0007.RMSE = sqrt(mean((cst.test[,1] - predict(cst.dt.AllVars.model.cp0007, cst.test[,-1]))^2))
 
 cst.dt.AllVars.OvP.df.cp0007 <- data.frame(predicted = predict(cst.dt.AllVars.model.cp0007), observed= cst.training$Life.expectancy)
+
+cst.allvars.cp
+
+cst.dt.allvars.model.AIC <- AIC(cst.dt.AllVars.OvP.df.cp0007$observed, cst.dt.AllVars.OvP.df.cp0007$predicted,nrow(cst.dt.AllVars.OvP.df.cp0007), 21)
+
+cst.dt.allvars.model.BIC <- BIC(cst.dt.AllVars.OvP.df.cp0007$observed, cst.dt.AllVars.OvP.df.cp0007$predicted,nrow(cst.dt.AllVars.OvP.df.cp0007), 21)
 
 summary(cst.dt.AllVars.model.cp0007)
 
@@ -368,111 +381,45 @@ ggplot(cst.dt.AllVars.OvP.df.cp0007,
 
 ```
 
-```{r lasso with glmnet}
-
-library(glmnet)
 
 
 
-x = model.matrix(cst.training$Life.expectancy ~ . ,cst.training)[,-1]
-y = cst.training$Life.expectancy
-
-xtest<-model.matrix(cst.testing.data$Life.expectancy~.,cst.testing.data)[,-1]
-ytest<-(cst.testing.data$Life.expectancy)
-
-grid=10^seq(10,-2, length =100)
-lasso.mod=glmnet(x,y,alpha=1, lambda =grid)
-
-cv.out=cv.glmnet(x,y,alpha=1) #alpha=1 performs LASSO
-plot(cv.out)
-bestlambda<-cv.out$lambda.min  #Optimal penalty parameter.  You can make this call visually.
-lasso.pred=predict (lasso.mod ,s=bestlambda ,newx=xtest)
-
-testMSE_LASSO<-mean((ytest-lasso.pred)^2)
-testMSE_LASSO
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                       Running KNNreg and DT Models Variables 
+                        selected by GLMNET and LASSO (5vars)
+                       
+(filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed,  log.EstGDPpercapita,log.HIV.AIDS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-coef(lasso.mod,s=bestlambda)
+```{r pulling top 5 predictors}
+
+#train set with 5 predictors
+cst.5var.training <- subset(cst.training, select = c(Life.expectancy,filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS))
+
+#train set wtih 5 predictors
+cst.5var.test <- subset(cst.test, select = c(Life.expectancy,filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS))
 
 ```
 
-```{r lasso with caret}
-library(dplyr)
-set.seed(1234)
-x <- model.matrix(Life.expectancy~.,cst.training)[,-1]
-y <- cst.training$Life.expectancy
-xtest <- model.matrix(Life.expectancy~.,cst.testing.data)[,-1]
-ytest <- cst.testing.data$Life.expectancy
-grid=10^seq(10,-2, length =100)
-lasso<-train(y= y,
-                 x = x,
-                 method = 'glmnet', 
-                 tuneGrid = expand.grid(alpha = 1, lambda = grid)
-               ) 
-
-ridge <-train(y=y, x = x, method = 'glmnet',tuneGrid = expand.grid(alpha = 0, lambda = grid))
-
-predictions_lasso <- lasso %>% predict(xtest)
-predictions_ridge <- ridge %>% predict(xtest)
-
-Lasso_RMSE = RMSE(predictions_lasso, ytest)
-Lasso_RMSE
-
-
-Ridge_RMSE = RMSE(predictions_ridge, ytest)
-Ridge_RMSE
-
-#Post resample - Lasso
-lasso.cst.testing.data<-postResample(pred = predictions_lasso, obs = cst.testing.data$Life.expectancy)
-lasso.cst.testing.data
-ridge.cst.testing.data<-postResample(pred = predictions_ridge, obs = cst.testing.data$Life.expectancy)
-ridge.cst.testing.data
-
-coef(lasso$finalMode,lasso$finalModel$lambdaOpt)
-varImp(lasso)
-coef(ridge$finalModel,ridge$finalModel$lambdaOpt)
-varImp(ridge)
-
-ImpLasso <- varImp(lasso)
-ImpRidge <- varImp(ridge)
-
-plot(ImpLasso)
-plot(ImpRidge)
-
-```
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                         Run models Again of VarIMP
-                         Filtered.Income.composition.of.resources
-                         log.adj.Adult.Mortality
-                         log.HIV.AIDS
-                         Developed
-                         log.under.five.deaths
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths
 ```{r}
+library(caret)
 # function is not liking all these variables will use select to filter training set
-cst.knn.5var.model <- knnreg(cst.training$Life.expectancy ~ filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths, data = cst.training, k=2)
+cst.knn.5var.model <- knnreg(cst.training$Life.expectancy ~ filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS, data = cst.training, k=2)
 ```
 
-
-```{r}
-
-cs.5var.training.data <- subset(cst.training, select = c(Life.expectancy,filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths))
-cs.5var.testing.data <- subset(cst.testing.data, select = c(Life.expectancy,filtered.Income.composition.of.resources, log.adj.Adult.Mortality, log.HIV.AIDS, Developed, log.under.five.deaths))
-
-```
-
-
-```{r}
-
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                              Knn Regression
+                   Tuning the Hyperparameter on 5 Vars
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```{r knn hyperparameter tunning}
 
 train5var.knn = function(mr.rogers){
-  knnreg(cs.5var.training.data$Life.expectancy ~ ., data = cs.5var.training.data, k=mr.rogers)
+  knnreg(cst.5var.training$Life.expectancy ~ ., data = cst.5var.training, k=mr.rogers)
 } 
 
 test5var.knn =  function(mr.rogers){
-  knnreg(cs.5var.testing.data$Life.expectancy ~ ., data = cs.5var.testing.data, k=mr.rogers)
+  knnreg(cst.5var.test$Life.expectancy ~ ., data = cst.5var.test, k=mr.rogers)
 } 
 
 k.to.try <- seq(1,50, by = 1)
@@ -482,25 +429,25 @@ cst.knn.5var.model.list.test = lapply(k.to.try, test5var.knn)
 
 
 #create and store list of predictions
-cst.knn.5var.model.train.predictions <- lapply(cst.knn.5var.model.list.train, predict, cs.5var.training.data)
-cst.knn.5var.model.test.predictions <- lapply(cst.knn.5var.model.list.test, predict, cs.5var.testing.data)
+cst.knn.5var.model.train.predictions <- lapply(cst.knn.5var.model.list.train, predict, cst.5var.training)
+cst.knn.5var.model.test.predictions <- lapply(cst.knn.5var.model.list.test, predict, cst.5var.test)
 ```
 
 Model Metrics RMSE
-```{r Root Mean Square Error}
+```{r Root Mean Square Error knn}
 #create function for RMSE
 
 
 #create and store matrix of RMSE
-cst.knn.5var.model.rmse.train <- sapply(cst.knn.5var.model.train.predictions, calc.rmse, actual = cs.5var.training.data$Life.expectancy)
-cst.knn.5var.model.rmse.test <- sapply(cst.knn.5var.model.test.predictions, calc.rmse, actual = cs.5var.testing.data$Life.expectancy)
+cst.knn.5var.model.rmse.train <- sapply(cst.knn.5var.model.train.predictions, calc.rmse, actual = cst.5var.training$Life.expectancy)
+cst.knn.5var.model.rmse.test <- sapply(cst.knn.5var.model.test.predictions, calc.rmse, actual = cst.5var.test$Life.expectancy)
 
 #RMSE plot of training vs predicted 
 plot(k.to.try, cst.knn.5var.model.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
      ylim = range(c(cst.knn.rmse.test, cst.knn.rmse.train)),
      xlab = "K Neighbors",
     ylab = "RMSE Specificy units (years?",
-    main = "Test and Training RMSE vs K")
+    main = "5 Vars Test and Training RMSE vs K")
 lines(k.to.try, cst.knn.5var.model.rmse.train, type = "b", col = "darkorange", pch = 23)
 index<-which(cst.knn.5var.model.rmse.test ==min(cst.knn.rmse.test))
 points(index,cst.knn.5var.model.ase.test[index],col="red",pch=10)
@@ -511,15 +458,15 @@ legend("topright", c("Train RMSE", "Test RMSE"),
 grid()
 ```
 
-```{r}
-cst.knn.5var.model.ase.train <- sapply(cst.knn.5var.model.train.predictions, calc.ase, actual = cs.5var.training.data$Life.expectancy)
-cst.knn.5var.model.ase.test <- sapply(cst.knn.5var.model.test.predictions, calc.ase, actual = cs.5var.testing.data$Life.expectancy)
+```{r ASE 5 Vars KNN}
+cst.knn.5var.model.ase.train <- sapply(cst.knn.5var.model.train.predictions, calc.ase, actual = cst.5var.training$Life.expectancy)
+cst.knn.5var.model.ase.test <- sapply(cst.knn.5var.model.test.predictions, calc.ase, actual = cst.5var.test$Life.expectancy)
 
 plot(k.to.try, cst.knn.5var.model.ase.test, type = "b", col = "dodgerblue", pch = 20, 
      ylim = range(c(cst.knn.ase.test, cst.knn.5var.model.rmse.train)),
      xlab = "K Neighbors",
     ylab = "ASE",
-    main = "Test and Training ASE vs K")
+    main = "5 Vars Test and Training ASE vs K")
 lines(k.to.try, cst.knn.5var.model.ase.train, type = "b", col = "darkorange", pch = 23)
 index<-which(cst.knn.5var.model.ase.test ==min(cst.knn.5var.model.ase.test))
 points(index,cst.knn.5var.model.ase.test[index],col="red",pch=10)
@@ -530,13 +477,13 @@ legend("topright", c("Train ASE", "Test ASE"),
 grid()
 ```
 
-```{r predicted vs expected}
-knn.5var.k1 <- knnreg(x= cs.5var.training.data[,-1], y=cs.5var.training.data[,1], k=1)
+```{r 5 vars predicted vs expected KNN}
+knn.5var.k1 <- knnreg(x= cst.5var.training[,-1], y=cst.5var.training[,1], k=1)
 
-#predict(knnt3, newdata = cs.5var.testing.data[,-1])
+#predict(knnt3, newdata = cst.5var.test[,-1])
 
 #data frame of predicted vs expected
-cst.knn.5Vars.OvP.df.k1 <- data.frame(predicted = predict(knn.5var.k1, newdata = cs.5var.testing.data[-1]), observed= cs.5var.testing.data[,1])
+cst.knn.5Vars.OvP.df.k1 <- data.frame(predicted = predict(knn.5var.k1, newdata = cst.5var.test[-1]), observed= cst.5var.test[,1])
 
 knn.5var.k1.mse <- round(mean((cst.knn.5Vars.OvP.df.k1$predicted - cst.knn.5Vars.OvP.df.k1$observed)^2), digits = 3)
 knn.5var.k1.rmse <- round(sqrt(mean((cst.knn.5Vars.OvP.df.k1$predicted - cst.knn.5Vars.OvP.df.k1$observed)^2)), digits = 3)
@@ -553,15 +500,303 @@ ggplot(cst.knn.5Vars.OvP.df.k1,
   geom_abline(intercept = 0,
               slope = 1,
               color = "red",
-              size = 2)
+              size = 2) +
+  labs(title = "5 Vars Expected Vs Predicted K=1")
 
 ```
 
-```{R compare knn model metrics}
+```{R compare knn model 5 var metrics}
 
 cst.knn.5var.model.AIC <- AIC(cst.knn.5Vars.OvP.df.k1$observed, cst.knn.5Vars.OvP.df.k1$predicted, nrow(cst.knn.5Vars.OvP.df.k1), 5)
 
 cst.knn.5var.model.BIC <- BIC(cst.knn.5Vars.OvP.df.k1$observed, cst.knn.5Vars.OvP.df.k1$predicted, nrow(cst.knn.5Vars.OvP.df.k1), 5)
 
-table(cst.knn.AllVars.k38.AIC, cst.knn.AllVars.k38.BIC, cst.knn.AllVars.k1.AIC, cst.knn.AllVars.k1.BIC, cst.knn.5var.model.AIC, cst.knn.5var.model.BIC)
+table(rbind(cst.knn.AllVars.k38.AIC, cst.knn.AllVars.k38.BIC, cst.knn.AllVars.k1.AIC, cst.knn.AllVars.k1.BIC, cst.knn.5var.model.AIC, cst.knn.5var.model.BIC))
 ```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                             Decesion Tree Model
+                          selected by GLMNET and LASSO
+                       
+(filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+```{r Decesion Tree with 5 vars}
+
+library(rpart)
+library(rpart.plot)
+
+
+#CP Default is 0.001
+cst.dt.5Vars.test.model <- rpart(cst.5var.training$Life.expectancy ~ ., data = cst.5var.training, method = 'anova', cp = .001)
+
+rpart.plot(cst.dt.5Vars.test.model)
+
+cst.dt.5Vars.model.predictions = predict(cst.dt.5Var.test.model, newdata = cst.5var.test[,-1])
+```
+
+```{r tunning DT model 5 var}
+#tunning the hyperparameter CP : default 0.01
+# this means that the overall R-squared must increase by cp
+# luckily plotcp does this for us!
+
+plotcp(cst.dt.5Vars.test.model)
+printcp(cst.dt.5Vars.test.model)
+
+#i like round 8 cp =0.0086 
+# lets discuss why
+```
+
+```{r running model with CP=0.0086 on 5 var}
+cst.dt.5var.model.cp0086 <-  rpart(cst.5var.training$Life.expectancy ~ ., data = cst.5var.training, method = 'anova', cp = 0.0086)
+
+rpart.plot(cst.dt.5var.model.cp0086)
+
+cst.dt.5Var.model.predictions <- predict(cst.dt.5var.model.cp0086, newdata = cst.5var.test[,-1], cp = 0.0086)
+
+#create Data frame of observed vs predicted for 5 variable model
+cst.dt.5var.OvP.df.cp0086 <- data.frame(predicted = predict(cst.dt.5var.model.cp0086, newdata = cst.5var.test[,-1]), observed= cst.5var.test$Life.expectancy)
+```
+
+
+
+```{r DT model Diagnostics 5 var}
+#ASE for Decision Tree 5 Variables
+cst.dt.5var.model.cp0086.ASE = round(mean((cst.dt.5var.OvP.df.cp0086$observed - cst.dt.5var.OvP.df.cp0086$predicted)^2), digits = 3)
+
+#RMSE for Decision Tree 5 Variables
+cst.dt.5var.model.cp0086.RMSE = round(sqrt(mean((cst.dt.5var.OvP.df.cp0086$observed - cst.dt.5var.OvP.df.cp0086$predicted)^2)), digits = 3)
+
+
+# AIC for DT model with 5 vars
+cst.dt.5var.model.AIC <- AIC(cst.dt.5var.OvP.df.cp0086$observed,cst.dt.5var.OvP.df.cp0086$predicted, nrow(cst.dt.5var.OvP.df.cp0086), 5)
+
+# BIC for DT model with 5 vars
+cst.dt.5var.model.BIC <- BIC(cst.dt.5var.OvP.df.cp0086$observed,cst.dt.5var.OvP.df.cp0086$predicted, nrow(cst.dt.5var.OvP.df.cp0086), 5)
+
+
+ggplot(cst.dt.5var.OvP.df.cp0086,                                     
+       aes(x = predicted,
+           y = observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              size = 2) +
+  labs(title = "5 Vars Expected Vs Predicted CP=.0086 ")
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                       Running KNNreg and DT Models Variables 
+                             selected by RIDGE (4vars)
+
+(filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+```{r pulling top 4 predictors from RIDGE}
+
+#train set with 4 predictors
+cst.4var.training <- subset(cst.training, select = c(Life.expectancy,filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed))
+
+#train set with 4 predictors
+cst.4var.test <- subset(cst.test, select = c(Life.expectancy,filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed))
+
+```
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                              Knn Regression
+                   Tuning the Hyperparameter on 4 Vars
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```{r knn hyperparameter tunning}
+
+train4var.knn = function(mr.rogers){
+  knnreg(cst.4var.training$Life.expectancy ~ ., data = cst.4var.training, k=mr.rogers)
+} 
+
+test4var.knn =  function(mr.rogers){
+  knnreg(cst.4var.test$Life.expectancy ~ ., data = cst.4var.test, k=mr.rogers)
+} 
+
+k.to.try <- seq(1,50, by = 1)
+#create and store list knn predictions for k = 1 thru fiddy
+cst.knn.4var.model.list.train = lapply(k.to.try, train4var.knn)
+cst.knn.4var.model.list.test = lapply(k.to.try, test4var.knn)
+
+
+#create and store list of predictions
+cst.knn.4var.model.train.predictions <- lapply(cst.knn.4var.model.list.train, predict, cst.4var.training)
+cst.knn.4var.model.test.predictions <- lapply(cst.knn.4var.model.list.test, predict, cst.4var.test)
+```
+
+Model Metrics RMSE
+```{r Root Mean Square Error}
+#create function for RMSE
+
+
+#create and store matrix of RMSE
+cst.knn.4var.model.rmse.train <- sapply(cst.knn.4var.model.train.predictions, calc.rmse, actual = cst.4var.training$Life.expectancy)
+cst.knn.4var.model.rmse.test <- sapply(cst.knn.4var.model.test.predictions, calc.rmse, actual = cst.4var.test$Life.expectancy)
+
+#RMSE plot of training vs predicted 
+plot(k.to.try, cst.knn.4var.model.rmse.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(cst.knn.rmse.test, cst.knn.rmse.train)),
+     xlab = "K Neighbors",
+    ylab = "RMSE Specificy units (years?",
+    main = "4 vars Test and Training RMSE vs K")
+lines(k.to.try, cst.knn.4var.model.rmse.train, type = "b", col = "darkorange", pch = 23)
+index<-which(cst.knn.4var.model.rmse.test ==min(cst.knn.rmse.test))
+points(index,cst.knn.4var.model.ase.test[index],col="red",pch=10)
+legend("topright", c("Train RMSE", "Test RMSE"), 
+       col = c("darkorange", "dodgerblue"),
+       lty = c(1), 
+       pch = c(23, 20))
+grid()
+```
+Model Metrics ASE
+```{r ASE}
+cst.knn.4var.model.ase.train <- sapply(cst.knn.4var.model.train.predictions, calc.ase, actual = cst.4var.training$Life.expectancy)
+cst.knn.4var.model.ase.test <- sapply(cst.knn.4var.model.test.predictions, calc.ase, actual = cst.4var.test$Life.expectancy)
+
+plot(k.to.try, cst.knn.4var.model.ase.test, type = "b", col = "dodgerblue", pch = 20, 
+     ylim = range(c(cst.knn.ase.test, cst.knn.4var.model.rmse.train)),
+     xlab = "K Neighbors",
+    ylab = "ASE",
+    main = "4 vars Test and Training ASE vs K")
+lines(k.to.try, cst.knn.4var.model.ase.train, type = "b", col = "darkorange", pch = 23)
+index<-which(cst.knn.4var.model.ase.test ==min(cst.knn.4var.model.ase.test))
+points(index,cst.knn.4var.model.ase.test[index],col="red",pch=10)
+legend("topright", c("Train ASE", "Test ASE"), 
+       col = c("darkorange", "dodgerblue"),
+       lty = c(1), 
+       pch = c(23, 20))
+grid()
+```
+
+
+```{r predicted vs expected knn reg 4 variables k=1}
+knn.4var.k1 <- knnreg(x= cst.4var.training[,-1], y=cst.4var.training[,1], k=1)
+
+
+
+#data frame of predicted vs expected
+cst.knn.4Vars.OvP.df.k1 <- data.frame(predicted = predict(knn.4var.k1, newdata = cst.4var.test[-1]), observed= cst.4var.test[,1])
+
+knn.4var.k1.mse <- round(mean((cst.knn.4Vars.OvP.df.k1$predicted - cst.knn.4Vars.OvP.df.k1$observed)^2), digits = 3)
+knn.4var.k1.rmse <- round(sqrt(mean((cst.knn.4Vars.OvP.df.k1$predicted - cst.knn.4Vars.OvP.df.k1$observed)^2)), digits = 3)
+
+cst.knn.4var.k1.AIC <- AIC(cst.knn.4Vars.OvP.df.k1$observed, cst.knn.4Vars.OvP.df.k1$predicted, nrow(cst.knn.4Vars.OvP.df.k1), 4)
+
+cst.knn.4var.k1.BIC <- BIC(cst.knn.4Vars.OvP.df.k1$observed,cst.knn.4Vars.OvP.df.k1$predicted, nrow(cst.knn.4Vars.OvP.df.k1), 4)
+
+table(knn.4var.k1.mse, knn.4var.k1.rmse)
+
+
+#they said it couldn't be done but I did it. plotted observed vs predicted with caret package. 
+ggplot(cst.knn.4Vars.OvP.df.k1,                                     
+       aes(x = predicted,
+           y = observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              size = 2) +
+  labs(title = " 4 Variables Expected Vs Predicted K=1")
+
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                             Decesion Tree Model
+                          selected by GLMNET and LASSO
+                                 4 Variables
+(filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+```{r Decesion Tree with 4 vars}
+
+library(rpart)
+library(rpart.plot)
+
+
+#CP Default is 0.001
+cst.dt.4Vars.test.model <- rpart(cst.4var.training$Life.expectancy ~ ., data = cst.4var.training, method = 'anova', cp = .001)
+
+rpart.plot(cst.dt.4Vars.test.model)
+
+cst.dt.4Vars.model.predictions = predict(cst.dt.4Var.test.model, newdata = cst.4var.test[,-1])
+```
+
+```{r tunning DT model 4 var}
+#tunning the hyperparameter CP : default 0.01
+# this means that the overall R-squared must increase by cp
+# luckily plotcp does this for us!
+
+plotcp(cst.dt.4Vars.test.model)
+printcp(cst.dt.4Vars.test.model)
+
+#i like round 8 cp =0.0051 
+# lets discuss why
+```
+
+```{r running model with CP=0.0086 on 4 var}
+cst.dt.4var.model.cp0051 <-  rpart(cst.4var.training$Life.expectancy ~ ., data = cst.4var.training, method = 'anova', cp = 0.0051)
+
+rpart.plot(cst.dt.4var.model.cp0051)
+
+cst.dt.4Var.model.predictions <- predict(cst.dt.4var.model.cp0051, newdata = cst.4var.test[,-1], cp = 0.0051)
+
+#create Data frame of observed vs predicted for 4 variable model
+cst.dt.4var.OvP.df.cp0051 <- data.frame(predicted = predict(cst.dt.4var.model.cp0051, newdata = cst.4var.test[,-1]), observed= cst.4var.test$Life.expectancy)
+```
+
+
+
+```{r DT model Diagnostics 4 var}
+#ASE for Decision Tree 4 Variables
+cst.dt.4var.model.cp0051.ASE = round(mean((cst.dt.4var.OvP.df.cp0051$observed - cst.dt.4var.OvP.df.cp0051$predicted)^2), digits = 3)
+
+#RMSE for Decision Tree 4 Variables
+cst.dt.4var.model.cp0051.RMSE = round(sqrt(mean((cst.dt.4var.OvP.df.cp0051$observed - cst.dt.4var.OvP.df.cp0051$predicted)^2)), digits = 3)
+
+
+# AIC for DT model with 4 vars
+cst.dt.4var.model.AIC <- AIC(cst.dt.4var.OvP.df.cp0051$observed,cst.dt.4var.OvP.df.cp0051$predicted, nrow(cst.dt.4var.OvP.df.cp0051), 4)
+
+# BIC for DT model with 4 vars
+cst.dt.4var.model.BIC <- BIC(cst.dt.4var.OvP.df.cp0051$observed,cst.dt.4var.OvP.df.cp0051$predicted, nrow(cst.dt.4var.OvP.df.cp0051), 4)
+
+
+ggplot(cst.dt.4var.OvP.df.cp0051,                                     
+       aes(x = predicted,
+           y = observed)) +
+  geom_point() +
+  geom_abline(intercept = 0,
+              slope = 1,
+              color = "red",
+              size = 2) +
+  labs(title = "4 Vars Expected Vs Predicted CP=.0051 ")
+```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                             Comparing All model Metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+```{r comparing all Model Metrics}
+
+# data frame model metrics from all models ran.
+
+#with MLR ID should equal 1:9
+model.metrics <- data.frame(id = 1:6, 
+           model = c("Knn.All.Var", "Knn.5.Var", "Knn.4.Var", "DT.All.Var", "DT.5.Var", "DT.4.VAr"),
+           RMSE =c(cst.knn.AllVars.rmse, knn.5var.k1.rmse, knn.4var.k1.rmse, cst.dt.AllVars.model.cp0007.RMSE,  cst.dt.5var.model.cp0086.RMSE, cst.dt.4var.model.cp0051.RMSE),
+           ASE = c(cst.knn.AllVars.mse, knn.5var.k1.mse, knn.4var.k1.mse,cst.dt.AllVars.model.cp0007.ASE, cst.dt.5var.model.cp0086.ASE, cst.dt.4var.model.cp0051.ASE),
+          AIC = c(cst.knn.AllVars.k1.AIC, cst.knn.5var.model.AIC, cst.knn.4var.k1.AIC, cst.dt.allvars.model.AIC, cst.dt.5var.model.AIC, cst.dt.4var.model.AIC), 
+          BIC = c(cst.knn.AllVars.k1.BIC, cst.knn.5var.model.BIC, cst.knn.4var.k1.BIC, cst.dt.allvars.model.BIC, cst.dt.5var.model.BIC, cst.dt.4var.model.BIC),  
+          HyperParameter = c("K=1","K=1", "K=1", "CP=0.007", "CP=0.0086", "CP=0.0051"))
+
+
+model.metrics
+
+
+```
+
+
