@@ -1,0 +1,136 @@
+---
+title: "mlr Rick"
+author: "Rick Fontenot"
+date: "6/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load Libraries
+```{r load-packages, include=FALSE}
+library(dplyr)
+library(tidyverse)
+library(caret)
+library(DataExplorer)
+library(gplots)
+library(graphics)
+library(corrplot)
+library(olsrr)
+library(ggpubr)
+library(rstatix)
+library(dplyr)
+library(tidyverse)
+library(visdat)
+library(GGally)
+library(usmap)
+library(mice)
+library(VIM)
+library(plotly)
+library(caret)
+library(e1071)
+library(class)
+library(maps)
+library(mapproj)
+library(stringr)
+library(ggplot2) 
+library(ggthemes)
+library(table1)
+library(DataExplorer)
+library(naniar)
+library(leaps)
+
+```
+Load Theme for plots
+
+```{r}
+theme_set(theme_fivethirtyeight())
+theme_update(axis.title = element_text()) #the default for fivethirtyeight is to not show axis labels, this removes that default so we can choose to specify and display axis titles
+theme_update(plot.title = element_text(hjust = 0.5)) # changing default to center all titles
+```
+
+Load cleaned data from EDA
+
+```{r}
+cleaned <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/cleaned.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+
+view(cleaned)
+
+sum(is.na(cleaned))
+```
+Use the transformed data set from EDA (see separate EDA rmd file for details) which includes cleaning data, removing high VIF parameters, dropping weak parameters with high NA, and log transformations of variables to meet linear assumption on variable by variable basis
+
+```{r}
+mlr.transformed <- lm(Life.expectancy ~ .,train.transformed %>% select (-Country,-Year))
+summary(mlr.transformed)
+
+test.transformed<-na.omit(test.transformed)
+test.transformed$predictions <- predict(mlr.transformed,test.transformed)
+RMSE(test.transformed$Life.expectancy,test.transformed$predictions)
+#RMSE=2.45
+
+mean(test.transformed$Life.expectancy)
+
+calcAIC <- function(actual, predicted, parameters){
+  resids = actual - predicted
+  n = length(predicted)
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(parameters + 1)
+  print(return(AIC))
+}
+
+calcAIC(test.transformed$Life.expectancy,test.transformed$predictions,15)
+#AIC=1107
+
+#Note Diphtheria,thinness..1.19.years,thinness.5.9.years,WHO.BMI.metric not significant drop for another model check
+
+#Variables to keep: Alcohol + Schooling + EstPopulation + EstPolio + filtered.Income.composition.of.resources + Developed + log.CorrectedExpenditure + log.EstGDPpercapita + log.HIV.AIDS + log.under.five.deaths + log.adj.Adult.Mortality
+
+mlr.transformed2 <- lm(Life.expectancy ~ Alcohol + Schooling + EstPopulation + EstPolio + filtered.Income.composition.of.resources + Developed + log.CorrectedExpenditure + log.EstGDPpercapita + log.HIV.AIDS + log.under.five.deaths + log.adj.Adult.Mortality,train.transformed %>% select (-Country,-Year))
+summary(mlr.transformed2)
+
+test.transformed$predictions <- predict(mlr.transformed2,test.transformed)
+RMSE(test.transformed$Life.expectancy,test.transformed$predictions)
+#RMSE=2.46
+
+calcAIC <- function(actual, predicted, parameters){
+  resids = actual - predicted
+  n = length(predicted)
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(parameters + 1)
+  print(return(AIC))
+}
+
+calcAIC(test.transformed$Life.expectancy,test.transformed$predictions,11)
+#AIC=1106
+
+#Drop EstPopulation, not significant
+
+mlr.transformed3 <- lm(Life.expectancy ~ Alcohol + Schooling + EstPolio + filtered.Income.composition.of.resources + Developed + log.CorrectedExpenditure + log.EstGDPpercapita + log.HIV.AIDS + log.under.five.deaths + log.adj.Adult.Mortality,train.transformed %>% select (-Country,-Year))
+summary(mlr.transformed3)
+#Note all remaining variables are of high significance so iterations to remove variables through this method are complete. Further improvements to model to be explored in objective 2 with a more complex model.
+
+test.transformed$predictions <- predict(mlr.transformed3,test.transformed)
+RMSE(test.transformed$Life.expectancy,test.transformed$predictions)
+#RMSE=2.46
+
+calcAIC <- function(actual, predicted, parameters){
+  resids = actual - predicted
+  n = length(predicted)
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(parameters + 1)
+  print(return(AIC))
+}
+
+calcAIC(test.transformed$Life.expectancy,test.transformed$predictions,10)
+#AIC=1104
+
+#Check residual diagnostics and assumptions of mlr
+plot(mlr.transformed3, which=1, col=c("red"))  # Residuals vs Fitted Plot
+plot(mlr.transformed3, which=2, col=c("red"))  # Q-Q Plot
+plot(mlr.transformed3, which=3, col=c("red"))  # Scale-Location Plot
+plot(mlr.transformed3, which=5, col=c("blue"))  # Residuals vs Leverage
+
+```
