@@ -41,158 +41,145 @@ cst.training <- subset(cst.training, select = -c(Country,Year))
 cst.test <- subset(cst.test, select = -c(Country, Year))
 ```
 
-Variable Selection
-Elastic Net Model with 10 Fold Cross Validation
-```{r}
-library(glmnet)
-fitControl<-trainControl(method="repeatedcv",number=10,repeats=10)
-# fitControl<-trainControl(method="none")
 
-#GLM Net Model (selecting tuning parameters alpha and lambda via 10 FOLD CV)
-# set.seed(1234)
-cst.glmnet.fit<-train(Life.expectancy~.,
-               data=cst.training,
-               method="glmnet",
-               trControl = fitControl,
-               na.action = na.omit
-               )
-#glmnet.fit results
-cst.glmnet.fit
-#Model Coefficients
-coef(cst.glmnet.fit$finalModel,cst.glmnet.fit$finalModel$lambdaOpt)
+```{r}
+c.df <- read.csv("https://raw.githubusercontent.com/JosephLazarus/Life_Expectancy/main/Data_Folder/cleaned.csv", header = TRUE, fileEncoding="UTF-8-BOM")
+c.df$Developed = as.factor(c.df$Developed)
+cleaned.df = subset(c.df, select = -c(Adult.Mortality))
+cleaned.df = na.omit(cleaned.df)
+
+cleaned.training <- cleaned.df[c(cleaned.df$Year <= 2010),]
+cleaned.test <- cleaned.df[c(cleaned.df$Year > 2010),]
+
+cleaned.training <- subset(cleaned.training, select = -c(Country,Year))
+cleaned.test <- subset(cleaned.test, select = -c(Country, Year))
+
+dim(c.df)
+dim(cleaned.training)
+#nrow = 560
+dim(cleaned.test)
 ```
 
+LASSO MODEL used for Analysis
 ```{r}
-#Creating using the test set. Resulting in the RMSE of the validation set
-cst.glmnet.pred<-predict(cst.glmnet.fit, newdata = cst.test[,-1], observed = cst.test[,1])
-RMSE(cst.glmnet.pred, cst.test$Life.expectancy)
+preprocessParams<-preProcess(X, method = c("center", "scale"))
+X <- predict(preprocessParams, X)
 
-#RMSE
-glmnet.RMSE<-sqrt(mean((cst.test$Life.expectancy-glmnet.pred)^2))
-glmnet.RMSE
-plot(cst.glmnet.pred, cst.test$Life.expectancy, ylim=c(40,100), xlim=c(40,100))
-lines(0:100,0:100)
+X <- model.matrix(Life.expectancy~.,cleaned.training)[,-1]
+y <- cleaned.training$Life.expectancy
+
+lambdaGrid = 10^seq(10,-2, length =100)
+A.Lasso<-train(y = y,
+             x = X,
+             method = 'glmnet',
+             tuneGrid = expand.grid(alpha = 1, lambda = 1)
+             )
+A.Lasso
+
+coef(A.Lasso$finalModel,A.Lasso$finalModel$lambdaOpt)
 
 
-#Here is a more natural tool to compute RMSE as well as some additional metrics
-cst.glmnet.resamp<-postResample(pred = cst.glmnet.pred, obs = cst.test$Life.expectancy)
-cst.glmnet.resamp
+B.Lasso<-train(y = y,
+             x = X,
+             method = 'glmnet',
+             tuneGrid = expand.grid(alpha = 1, lambda = 0.5)
+             )
+B.Lasso
+coef(B.Lasso$finalModel,B.Lasso$finalModel$lambdaOpt)
 
-#Ranking of the predictors
-list(varImp(cst.glmnet.fit))
-plot(varImp(cst.glmnet.fit))
-# Top 5 in order of importance features selected by the Elastic Net Model
-#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
+varImp.Lasso = varImp(c.Lasso)
+varImp.Lasso
+plot.varImp.Lasso = plot(varImp(c.Lasso))
+plot.varImp.Lasso
 
+#Fitting Lassso Model A using 17 predictors, lambda = 1
+var17.fit = lm(Life.expectancy ~ infant.deaths+Alcohol+Hepatitis.B+Measles+Total.expenditure+Diphtheria+HIV.AIDS+thinness..1.19.years+thinness.5.9.years+EstPopulation+EstGDPpercapita+CorrectedExpenditure+new.Adult.Mortality+WHO.BMI.metric+EstPolio+filtered.Income.composition.of.resources+Developed, data = cleaned.training)
+
+fit17.preds = predict(var17.fit, newdata = cleaned.test)
+rmse.var17= RMSE(fit17.preds,cleaned.test$Life.expectancy)
+rmse.var17
+
+#Function for the AIC, Run all before proceeding
+AIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
+c.getdf <- function(model) {
+  data.frame(predicted = predict(model, newdata = cleaned.test[-1]), observed = cleaned.test[,1])
+}
+#(2) use above call to get the AIC, input dataframe and number of parameters
+c.aic <- function(dataframe, numparameters){
+  AIC(dataframe$observed, dataframe$predicted, nrow(dataframe), numparameters)
+}
+
+#RMSE for 17 Variable Model is 2.33
+rmse.var17
+
+#AIC for 17 Variable Model is 984.219
+dataframe.17 = c.getdf(var17.fit)
+aic.17= c.aic(dataframe.17,17)
+aic.17
+
+#Fitting Lasso Model B using only 5 predictors lambda = 0.5
+var5.fit = lm(Life.expectancy ~ thinness.5.9.years+Schooling+new.Adult.Mortality+EstPolio+filtered.Income.composition.of.resources, data = cleaned.training)
+fit5.preds = predict(var5.fit, newdata = cleaned.test)
+rmse.var5= RMSE(fit5.preds,cleaned.test$Life.expectancy)
+rmse.var5
+
+#AIC for 5 Variable Model is 1016.399
+dataframe.5 = c.getdf(var5.fit)
+aic.5= c.aic(dataframe.5,5)
+#RMSE for 5 variable Model 2.451708
+aic.5
 ```
 
-Variable Selection - Lasso
+
 
 ```{r}
-X <- model.matrix(Life.expectancy~.,cst.training)[,-1]
+X <- model.matrix(Life.expectancy~.*.,cleaned.training)[,-1]
 
-y <- cst.training$Life.expectancy
-
-xTest <- model.matrix(Life.expectancy~.,cst.test)[,-1]
-
-yTest <- cst.test$Life.expectancy
+y <- cleaned.training$Life.expectancy
 
 lambdaGrid = 10^seq(10,-2, length =100)
 
-cst.Lasso<-train(y = y,
+Lasso<-train(y = y,
              x = X,
              method = 'glmnet',
              tuneGrid = expand.grid(alpha = 1, lambda = lambdaGrid),
              na.action = na.omit
              )
+Lasso$finalModel$lambdaOpt
+plot(varImp(Lasso))
 
-cst.Lasso.pred <- cst.Lasso %>% predict(xTest)
 
-cst.Lasso_RMSE = RMSE(cst.Lasso.pred, yTest)
-cst.Lasso_RMSE
+complex.var5.fit = lm(Life.expectancy ~ filtered.Income.composition.of.resources + thinness..1.19.years:Developed + Alcohol:Developed + new.Adult.Mortality, data = cleaned.training)
+summary(complex.var5.fit)
 
-Lasso.test <-postResample(pred = cst.Lasso.pred, obs = cst.test$Life.expectancy)
-Lasso.test
+complex.preds = predict(complex.var5.fit, newdata = cleaned.test)
+complex.rmse = RMSE(complex.preds,cleaned.test$Life.expectancy)
+complex.rmse
 
-coef(cst.Lasso$finalMode,cst.Lasso$finalModel$lambdaOpt)
-
-varImp(cst.Lasso)
-plot(varImp(cst.Lasso))
-# 
-# Top 5 in order of importance features selected by of Lasso
-#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
-# Selected the same variables as Elastic Net
-
+AIC <- function(y, y_pred, n, k){
+  resids = y - y_pred
+  sse = sum(resids^2)
+  AIC =  n * log(sse/n) + 2*(k + 1)
+  print(return(AIC))
+}
+c.getdf <- function(model) {
+  data.frame(predicted = predict(model, newdata = cleaned.test[-1]), observed = cleaned.test[,1])
+}
+#(2) use above call to get the AIC, input dataframe and number of parameters
+c.aic <- function(dataframe, numparameters){
+  AIC(dataframe$observed, dataframe$predicted, nrow(dataframe), numparameters)
+}
+complex.var5.fit
+complex.df = c.getdf(complex.var5.fit)
+com.aic =  c.aic(complex.df,6)
+com.aic
 ```
 
-Variable Selection with Ridge
-```{r}
-#Recheck RMSE for Ridge and Lasso. getting the same values.
-cst.Ridge <-train(y = y, 
-              x = X,
-              method = 'glmnet',
-              tuneGrid = expand.grid(alpha = 0, lambda = lambdaGrid),
-              na.action = na.omit
-              )
-cst.Ridge.pred <- cst.Lasso %>% predict(xTest)
-
-cst.Ridge_RMSE = RMSE(cst.Ridge.pred, yTest)
-cst.Ridge_RMSE
-
-Ridge.test<-postResample(pred = cst.Ridge.pred, obs = cst.test$Life.expectancy)
-Ridge.test
-
-coef(cst.Ridge$finalModel,cst.Ridge$finalModel$lambdaOpt)
-
-varImp(cst.Ridge)
-plot(varImp(cst.Ridge))
-# Top 4 in order of importance features selected by of Ridge
-#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
-# Selected the same variables as Ridge
-
-```
-
-
-
-
-Variable Selection - Forward
-```{r}
-#get coef for forward selection
-fitControlForward<-trainControl(method="cv")
-
-cst.f.fit<-train(x=X,
-             y=y,
-             method="leapForward",
-             trControl=fitControlForward,
-             tuneGrid = expand.grid(nvmax = seq(1, 12, 1))
-             )
-cst.f.fit
-plot(cst.f.fit)
-varImp(cst.f.fit,)
-plot(varImp(cst.f.fit))
-
-coef(cst.f.fit$finalModel, cst.f.fit$finalModel$last)
-coef(cst.f.fit$finalModel)
-
-#Top  in order of importance features selected by Forward Selection
-#  (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
-#Selected the same variables as Forward Selection
-
-```
-
-Top 5 in order of importance features selected by the Elastic Net Model
- (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
- 
-Top 5 in order of importance features selected by of Lasso
- (filtered.Income.composition.of.resources,log.adj.Adult.Mortality, Developed, log.EstGDPpercapita,log.HIV.AIDS)
-Selected the same variables as Elastic Net
-
-Top 4 in order of importance features selected by Ridge
- (filtered.Income.composition.of.resources,log.adj.Adult.Mortality,log.HIV.AIDS, Developed)
-Selected the same variables as Ridge)
-(Left out log.EstGDPpercapita)
-
-Moving Forward from variable selection. Now we will check our models using LM with variables selected by Lasso, Elastic Net, and Ridge.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                                  Model Metrics
