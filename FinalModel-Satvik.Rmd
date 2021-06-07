@@ -309,14 +309,14 @@ get.aic <- function(dataframe){
   AIC(dataframe$observed, dataframe$predicted, nrow(dataframe), 600)
 }
 #(3) Get AIC for that model
-theDataFrame = df.funct(ELASTICNET.fitTEST2)
-modelAIC2 = get.aic(theDataFrame)
+theDataFrame2 = df.funct(ELASTICNET.fitTEST2)
+modelAIC2 = get.aic(theDataFrame2)
 modelAIC2
-theDataFrame = df.funct(ELASTICNET.fitTEST3)
-modelAIC3 = get.aic(theDataFrame)
+theDataFrame3 = df.funct(ELASTICNET.fitTEST3)
+modelAIC3 = get.aic(theDataFrame3)
 modelAIC3
-theDataFrame = df.funct(ELASTICNET.fitTEST4)
-modelAIC4 = get.aic(theDataFrame)
+theDataFrame4 = df.funct(ELASTICNET.fitTEST4)
+modelAIC4 = get.aic(theDataFrame4)
 modelAIC4
 ```
 
